@@ -75,261 +75,232 @@ const LandingPage: React.FC = () => {
   }, []);
 
   return (
-    <div className="bg-white">
+    <div className="bg-white min-h-screen flex flex-col">
       <Navbar />
       
-      {/* Hero section */}
-      <div className="relative bg-gray-900">
-        {/* Decorative image and overlay */}
-        <div aria-hidden="true" className="absolute inset-0 overflow-hidden">
-          <img
-            src="https://images.unsplash.com/photo-1496171367470-9ed9a91ea931?q=80&w=2070&auto=format&fit=crop"
-            alt="Hero background"
-            className="w-full h-full object-center object-cover opacity-30"
-          />
-        </div>
-        <div aria-hidden="true" className="absolute inset-0 bg-gray-900 opacity-50" />
-
-        <div className="relative max-w-3xl mx-auto py-32 px-6 flex flex-col items-center text-center sm:py-40 lg:px-0">
-          <h1 className="text-4xl font-extrabold tracking-tight text-white lg:text-6xl">Beam</h1>
-          <p className="mt-4 text-xl text-white">
-            Premium tech accessories for your digital lifestyle. Quality products that enhance your experience.
-          </p>
-          <Link
-            to="/products"
-            className="mt-8 inline-block bg-indigo-600 border border-transparent rounded-md py-3 px-8 text-base font-medium text-white hover:bg-indigo-700"
-          >
-            Shop Now
-          </Link>
-        </div>
-      </div>
-
-      {/* Featured products section */}
-      <section aria-labelledby="trending-heading" className="bg-white">
-        <div className="max-w-7xl mx-auto py-16 px-4 sm:py-24 sm:px-6 lg:px-8">
-          <div className="md:flex md:items-center md:justify-between">
-            <h2 id="trending-heading" className="text-2xl font-extrabold tracking-tight text-gray-900">
-              Featured Products
-            </h2>
-            <Link
-              to="/products"
-              className="hidden text-sm font-medium text-indigo-600 hover:text-indigo-500 md:block"
-            >
-              View all products<span aria-hidden="true"> &rarr;</span>
-            </Link>
+      <main className="flex-grow">
+        {/* Hero section */}
+        <div className="relative bg-gray-900 overflow-hidden">
+          {/* Decorative image and overlay */}
+          <div aria-hidden="true" className="absolute inset-0 overflow-hidden">
+            <img
+              src="https://images.unsplash.com/photo-1496171367470-9ed9a91ea931?q=80&w=2070&auto=format&fit=crop"
+              alt="Hero background"
+              className="w-full h-full object-center object-cover opacity-30"
+            />
           </div>
+          <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-gray-900 to-gray-900/70" />
 
-          <div className="mt-6">
+          <div className="relative max-w-7xl mx-auto py-24 px-4 sm:py-32 sm:px-6 lg:px-8">
+            <div className="text-center">
+              <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">
+                <span className="block">Premium Tech Accessories</span>
+                <span className="block text-indigo-400">For Your Digital Lifestyle</span>
+              </h1>
+              <p className="mt-6 max-w-lg mx-auto text-xl text-gray-300 sm:max-w-3xl">
+                Discover our curated collection of high-quality tech accessories designed to enhance your daily digital experience.
+              </p>
+              <div className="mt-10 max-w-sm mx-auto sm:max-w-none sm:flex sm:justify-center">
+                <div className="space-y-4 sm:space-y-0 sm:mx-auto sm:inline-grid sm:grid-cols-2 sm:gap-5">
+                  <Link
+                    to="/products"
+                    className="btn btn-primary px-8 py-3 text-base font-medium rounded-md"
+                  >
+                    Shop Now
+                  </Link>
+                  <Link
+                    to="/about"
+                    className="btn btn-secondary px-8 py-3 text-base font-medium rounded-md"
+                  >
+                    Learn More
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Featured Categories */}
+        <div className="bg-white py-16">
+          <div className="container-custom">
+            <div className="text-center">
+              <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">Shop by Category</h2>
+              <p className="mt-4 max-w-2xl mx-auto text-xl text-gray-500">
+                Browse our products by category to find exactly what you need.
+              </p>
+            </div>
+            <div className="mt-12 grid grid-cols-1 gap-y-10 gap-x-6 sm:grid-cols-2 lg:grid-cols-4 xl:gap-x-16">
+              {['Headphones', 'Cases', 'Chargers', 'Accessories'].map((category) => (
+                <Link
+                  key={category}
+                  to={`/products?category=${category.toLowerCase()}`}
+                  className="group relative"
+                >
+                  <div className="relative w-full h-80 bg-white rounded-lg overflow-hidden group-hover:opacity-75 transition-opacity duration-300">
+                    <img
+                      src={`https://source.unsplash.com/random/400x300/?${category.toLowerCase()}`}
+                      alt={category}
+                      className="w-full h-full object-center object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end">
+                      <div className="p-6">
+                        <h3 className="text-xl font-bold text-white">{category}</h3>
+                        <p className="mt-1 text-sm text-gray-200">Shop {category}</p>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Featured Products */}
+        <div className="bg-gray-50 py-16">
+          <div className="container-custom">
+            <div className="text-center">
+              <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">Featured Products</h2>
+              <p className="mt-4 max-w-2xl mx-auto text-xl text-gray-500">
+                Discover our most popular products loved by customers.
+              </p>
+            </div>
+            
             {loading ? (
-              <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+              <div className="mt-12 grid grid-cols-1 gap-y-10 gap-x-6 sm:grid-cols-2 lg:grid-cols-3 xl:gap-x-8">
+                {[1, 2, 3, 4, 5, 6].map((item) => (
+                  <div key={item} className="animate-pulse">
+                    <div className="aspect-w-1 aspect-h-1 w-full overflow-hidden rounded-lg bg-gray-200"></div>
+                    <div className="mt-4 space-y-3">
+                      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                      <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : error ? (
-              <div className="text-center py-12">
-                <p className="text-lg text-red-500">{error}</p>
-                <button
-                  onClick={() => window.location.reload()}
-                  className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              <div className="mt-12 text-center">
+                <p className="text-red-500">{error}</p>
+                <button 
+                  onClick={() => window.location.reload()} 
+                  className="mt-4 btn btn-primary"
                 >
                   Try Again
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-y-10 gap-x-6 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="mt-12 grid grid-cols-1 gap-y-10 gap-x-6 sm:grid-cols-2 lg:grid-cols-3 xl:gap-x-8">
                 {featuredProducts.map((product) => (
-                  <ProductCard key={product.id} product={product} />
+                  <ProductCard
+                    key={product.id}
+                    id={product.id}
+                    title={product.name}
+                    price={product.price}
+                    image={product.image}
+                    category={product.category}
+                    rating={product.rating}
+                    reviewCount={product.numReviews}
+                  />
                 ))}
               </div>
             )}
-          </div>
-
-          <div className="mt-8 text-sm md:hidden">
-            <Link
-              to="/products"
-              className="font-medium text-indigo-600 hover:text-indigo-500"
-            >
-              View all products<span aria-hidden="true"> &rarr;</span>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Features section */}
-      <section aria-labelledby="features-heading" className="bg-gray-50">
-        <div className="max-w-7xl mx-auto py-16 px-4 sm:py-24 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h2 id="features-heading" className="text-3xl font-extrabold tracking-tight text-gray-900">
-              Why shop with us
-            </h2>
-            <p className="mt-4 max-w-3xl mx-auto text-base text-gray-500">
-              We're committed to providing the best shopping experience for tech enthusiasts.
-            </p>
-          </div>
-
-          <div className="mt-12">
-            <div className="grid grid-cols-1 gap-y-12 gap-x-6 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="text-center">
-                <div className="flex items-center justify-center h-12 w-12 rounded-md bg-indigo-500 text-white mx-auto">
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <h3 className="mt-6 text-lg font-medium text-gray-900">Premium Quality</h3>
-                <p className="mt-2 text-base text-gray-500">
-                  All our products are carefully selected for quality and durability.
-                </p>
-              </div>
-
-              <div className="text-center">
-                <div className="flex items-center justify-center h-12 w-12 rounded-md bg-indigo-500 text-white mx-auto">
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h3 className="mt-6 text-lg font-medium text-gray-900">Fast Delivery</h3>
-                <p className="mt-2 text-base text-gray-500">
-                  Quick processing and shipping to get your products to you faster.
-                </p>
-              </div>
-
-              <div className="text-center">
-                <div className="flex items-center justify-center h-12 w-12 rounded-md bg-indigo-500 text-white mx-auto">
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                  </svg>
-                </div>
-                <h3 className="mt-6 text-lg font-medium text-gray-900">Secure Payments</h3>
-                <p className="mt-2 text-base text-gray-500">
-                  Your payment information is always secure and protected.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials section */}
-      <section aria-labelledby="testimonials-heading" className="bg-white">
-        <div className="max-w-7xl mx-auto py-16 px-4 sm:py-24 sm:px-6 lg:px-8">
-          <h2 id="testimonials-heading" className="text-3xl font-extrabold tracking-tight text-gray-900 text-center">
-            What our customers say
-          </h2>
-
-          <div className="mt-12">
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="bg-gray-50 p-6 rounded-lg">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <img
-                      className="h-12 w-12 rounded-full"
-                      src="https://images.unsplash.com/photo-1463453091185-61582044d556?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-                      alt="Customer"
-                    />
-                  </div>
-                  <div className="ml-4">
-                    <h3 className="text-lg font-medium text-gray-900">John Smith</h3>
-                    <div className="flex items-center">
-                      {[0, 1, 2, 3, 4].map((rating) => (
-                        <svg
-                          key={rating}
-                          className={`h-5 w-5 ${rating < 5 ? 'text-yellow-400' : 'text-gray-300'}`}
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <p className="mt-4 text-base text-gray-500">
-                  "The wireless headphones I purchased exceeded my expectations. Great sound quality and battery life!"
-                </p>
-              </div>
-
-              <div className="bg-gray-50 p-6 rounded-lg">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <img
-                      className="h-12 w-12 rounded-full"
-                      src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-                      alt="Customer"
-                    />
-                  </div>
-                  <div className="ml-4">
-                    <h3 className="text-lg font-medium text-gray-900">Sarah Johnson</h3>
-                    <div className="flex items-center">
-                      {[0, 1, 2, 3, 4].map((rating) => (
-                        <svg
-                          key={rating}
-                          className={`h-5 w-5 ${rating < 4 ? 'text-yellow-400' : 'text-gray-300'}`}
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <p className="mt-4 text-base text-gray-500">
-                  "Fast shipping and excellent customer service. My laptop stand is perfect for my home office setup."
-                </p>
-              </div>
-
-              <div className="bg-gray-50 p-6 rounded-lg">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <img
-                      className="h-12 w-12 rounded-full"
-                      src="https://images.unsplash.com/photo-1519244703995-f4e0f30006d5?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-                      alt="Customer"
-                    />
-                  </div>
-                  <div className="ml-4">
-                    <h3 className="text-lg font-medium text-gray-900">Michael Brown</h3>
-                    <div className="flex items-center">
-                      {[0, 1, 2, 3, 4].map((rating) => (
-                        <svg
-                          key={rating}
-                          className={`h-5 w-5 ${rating < 5 ? 'text-yellow-400' : 'text-gray-300'}`}
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <p className="mt-4 text-base text-gray-500">
-                  "The gaming mouse is responsive and comfortable. Great value for the price!"
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA section */}
-      <section aria-labelledby="cta-heading" className="bg-indigo-600">
-        <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:py-16 lg:px-8 lg:flex lg:items-center lg:justify-between">
-          <h2 id="cta-heading" className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
-            <span className="block">Ready to upgrade your tech?</span>
-            <span className="block text-indigo-200">Start shopping today.</span>
-          </h2>
-          <div className="mt-8 flex lg:mt-0 lg:flex-shrink-0">
-            <div className="inline-flex rounded-md shadow">
+            
+            <div className="mt-12 text-center">
               <Link
                 to="/products"
-                className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-indigo-600 bg-white hover:bg-indigo-50"
+                className="btn btn-primary px-8 py-3 text-base font-medium rounded-md"
               >
-                Shop Now
+                View All Products
               </Link>
             </div>
           </div>
         </div>
-      </section>
+
+        {/* Testimonials */}
+        <div className="bg-white py-16">
+          <div className="container-custom">
+            <div className="text-center">
+              <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">What Our Customers Say</h2>
+              <p className="mt-4 max-w-2xl mx-auto text-xl text-gray-500">
+                Don't just take our word for it - hear from our satisfied customers.
+              </p>
+            </div>
+            <div className="mt-12 grid grid-cols-1 gap-8 md:grid-cols-3">
+              {[
+                {
+                  content: "The quality of these products is exceptional. I've been using them for months and they still look and work like new.",
+                  author: "Sarah Johnson",
+                  role: "Tech Enthusiast"
+                },
+                {
+                  content: "Fast shipping and excellent customer service. The product exceeded my expectations in every way.",
+                  author: "Michael Chen",
+                  role: "Digital Nomad"
+                },
+                {
+                  content: "I love how these accessories enhance my daily tech experience. The attention to detail is impressive.",
+                  author: "Emily Rodriguez",
+                  role: "Content Creator"
+                }
+              ].map((testimonial, index) => (
+                <div key={index} className="bg-gray-50 rounded-lg p-8 shadow-sm">
+                  <div className="flex items-center mb-4">
+                    <div className="flex-shrink-0">
+                      <div className="h-12 w-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+                        {testimonial.author.charAt(0)}
+                      </div>
+                    </div>
+                    <div className="ml-4">
+                      <h4 className="text-lg font-medium text-gray-900">{testimonial.author}</h4>
+                      <p className="text-sm text-gray-500">{testimonial.role}</p>
+                    </div>
+                  </div>
+                  <p className="text-gray-600 italic">"{testimonial.content}"</p>
+                  <div className="mt-4 flex">
+                    {[0, 1, 2, 3, 4].map((star) => (
+                      <svg
+                        key={star}
+                        className="h-5 w-5 text-yellow-400"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* CTA Section */}
+        <div className="bg-indigo-700">
+          <div className="container-custom py-12 px-4 sm:px-6 lg:py-16 lg:px-8 lg:flex lg:items-center lg:justify-between">
+            <h2 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+              <span className="block">Ready to upgrade your tech accessories?</span>
+              <span className="block text-indigo-200">Join thousands of satisfied customers today.</span>
+            </h2>
+            <div className="mt-8 flex lg:mt-0 lg:flex-shrink-0">
+              <div className="inline-flex rounded-md shadow">
+                <Link
+                  to="/products"
+                  className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-indigo-600 bg-white hover:bg-indigo-50"
+                >
+                  Shop Now
+                </Link>
+              </div>
+              <div className="ml-3 inline-flex rounded-md shadow">
+                <Link
+                  to="/register"
+                  className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-500 hover:bg-indigo-600"
+                >
+                  Sign Up
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
       
       <Footer />
     </div>
