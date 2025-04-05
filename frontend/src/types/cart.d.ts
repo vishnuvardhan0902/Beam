@@ -4,6 +4,7 @@ export interface CartItem {
   price: number;
   image: string;
   quantity: number;
+  color?: string;
 }
 
 export interface ShippingAddress {
@@ -18,6 +19,7 @@ export interface CartContextType {
   shippingAddress: ShippingAddress | null;
   paymentMethod: string;
   loading: boolean;
+  itemCount: number;
   addToCart: (item: CartItem) => void;
   removeFromCart: (id: string) => void;
   updateCartQuantity: (id: string, quantity: number) => void;
