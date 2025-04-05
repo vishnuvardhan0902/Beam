@@ -5,6 +5,14 @@ export interface User {
   isAdmin: boolean;
   token?: string;
   avatar?: string;
+  createdAt?: string;
+  cart?: Array<{
+    productId: string;
+    name: string;
+    image: string;
+    price: number;
+    quantity: number;
+  }>;
 }
 
 export interface AuthContextType {

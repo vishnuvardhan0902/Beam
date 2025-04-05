@@ -13,7 +13,7 @@ const api = axios.create({
 // Add request interceptor to include the auth token in all requests
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('userToken');
+    const token = localStorage.getItem('userToken') || localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -57,7 +57,7 @@ export const login = async (email, password) => {
   try {
     const { data } = await api.post('/users/login', { email, password });
     localStorage.setItem('userInfo', JSON.stringify(data));
-    localStorage.setItem('userToken', data.token);
+    localStorage.setItem('token', data.token);
     return data;
   } catch (error) {
     throw error.response?.data?.message || error.message;
@@ -73,7 +73,7 @@ export const googleLogin = async (googleData) => {
       avatar: googleData.photoURL || googleData.avatar,
     });
     localStorage.setItem('userInfo', JSON.stringify(data));
-    localStorage.setItem('userToken', data.token);
+    localStorage.setItem('token', data.token);
     return data;
   } catch (error) {
     throw error.response?.data?.message || error.message;
@@ -84,7 +84,7 @@ export const register = async (name, email, password) => {
   try {
     const { data } = await api.post('/users', { name, email, password });
     localStorage.setItem('userInfo', JSON.stringify(data));
-    localStorage.setItem('userToken', data.token);
+    localStorage.setItem('token', data.token);
     return data;
   } catch (error) {
     throw error.response?.data?.message || error.message;
@@ -93,8 +93,9 @@ export const register = async (name, email, password) => {
 
 export const logout = () => {
   localStorage.removeItem('userInfo');
-  localStorage.removeItem('userToken');
-  localStorage.removeItem('cartItems');
+  localStorage.removeItem('token');
+  // Don't clear cart items on logout as we want them to persist
+  // localStorage.removeItem('cartItems');
   localStorage.removeItem('shippingAddress');
   localStorage.removeItem('paymentMethod');
 };
@@ -119,48 +120,24 @@ export const updateUserProfile = async (user) => {
 };
 
 // Cart
-export const addToCart = async (id, qty, color) => {
+export const updateUserCart = async (cartItems) => {
   try {
-    const { data } = await api.get(`/products/${id}`);
-    const item = {
-      product: data._id,
-      name: data.name,
-      image: data.images[0],
-      price: data.price,
-      countInStock: data.countInStock,
-      qty,
-      color,
-    };
-
-    // Store cart data in localStorage
-    const cartItems = JSON.parse(localStorage.getItem('cartItems') || '[]');
-    
-    // Check if item already exists in cart
-    const existItem = cartItems.find(x => x.product === item.product && x.color === item.color);
-    
-    if (existItem) {
-      // Update existing item
-      const updatedCartItems = cartItems.map(x => 
-        x.product === existItem.product && x.color === existItem.color ? item : x
-      );
-      localStorage.setItem('cartItems', JSON.stringify(updatedCartItems));
-      return updatedCartItems;
-    } else {
-      // Add new item
-      const updatedCartItems = [...cartItems, item];
-      localStorage.setItem('cartItems', JSON.stringify(updatedCartItems));
-      return updatedCartItems;
-    }
+    const { data } = await api.put('/users/cart', { cartItems });
+    return data;
   } catch (error) {
+    console.error('Error updating cart:', error);
     throw error.response?.data?.message || error.message;
   }
 };
 
-export const removeFromCart = (id, color) => {
-  const cartItems = JSON.parse(localStorage.getItem('cartItems') || '[]');
-  const updatedCartItems = cartItems.filter(x => !(x.product === id && x.color === color));
-  localStorage.setItem('cartItems', JSON.stringify(updatedCartItems));
-  return updatedCartItems;
+export const getUserCart = async () => {
+  try {
+    const { data } = await api.get('/users/profile');
+    return data.cart || [];
+  } catch (error) {
+    console.error('Error fetching user cart:', error);
+    throw error.response?.data?.message || error.message;
+  }
 };
 
 // Orders

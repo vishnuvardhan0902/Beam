@@ -15,22 +15,48 @@ const userSchema = mongoose.Schema(
     password: {
       type: String,
       required: function() {
-        return !this.googleId; // Password is required only if not using Google login
+        return !this.googleId; // Password not required if using Google auth
       },
-    },
-    googleId: {
-      type: String,
-      unique: true,
-      sparse: true // Allow null/undefined values and only enforce uniqueness on actual values
     },
     isAdmin: {
       type: Boolean,
       required: true,
       default: false,
     },
-    avatar: {
-      type: String, // For storing profile picture URL from Google
+    googleId: {
+      type: String,
+      required: false,
     },
+    avatar: {
+      type: String,
+      required: false,
+    },
+    cart: [
+      {
+        productId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'Product',
+          required: true
+        },
+        name: {
+          type: String,
+          required: true
+        },
+        image: {
+          type: String,
+          required: true
+        },
+        price: {
+          type: Number,
+          required: true
+        },
+        quantity: {
+          type: Number,
+          required: true,
+          default: 1
+        }
+      }
+    ],
   },
   {
     timestamps: true,

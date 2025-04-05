@@ -3,7 +3,8 @@ import { Link, useParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import ProductCard from '../components/ProductCard';
-import { getProductDetails, getProducts } from '../services/api.js';
+import { getProductDetails, getProducts } from '../services/api';
+import { useCart } from '../context/CartContext';
 
 // Product interface
 interface Product {
@@ -35,6 +36,9 @@ const ProductDetail: React.FC = () => {
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
   const [isAddedToCart, setIsAddedToCart] = useState(false);
+  
+  // Get cart context
+  const { addToCart } = useCart();
 
   // Fetch product details
   useEffect(() => {
@@ -101,14 +105,25 @@ const ProductDetail: React.FC = () => {
   }, [id]);
 
   const handleAddToCart = () => {
-    // In a real app, this would call the addToCart API function
-    console.log(`Adding to cart: ${product?.name}, Color: ${selectedColor}, Quantity: ${quantity}`);
-    setIsAddedToCart(true);
-    
-    // Reset the "Added to cart" message after 3 seconds
-    setTimeout(() => {
-      setIsAddedToCart(false);
-    }, 3000);
+    if (product) {
+      const cartItem = {
+        id: product._id || product.id,
+        title: product.name,
+        price: product.price,
+        image: product.images[selectedImage],
+        quantity: quantity
+      };
+      
+      // Add to cart using context
+      addToCart(cartItem);
+      console.log('Added to cart:', cartItem);
+      setIsAddedToCart(true);
+      
+      // Reset the "Added to cart" message after 3 seconds
+      setTimeout(() => {
+        setIsAddedToCart(false);
+      }, 3000);
+    }
   };
 
   const handleQuantityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {

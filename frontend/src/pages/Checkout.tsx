@@ -4,39 +4,30 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { createRazorpayOrder, initializeRazorpayPayment, isRazorpayLoaded } from '../services/razorpay';
 import { useAuth } from '../context/AuthContext';
-
-// Mock cart data (in a real app, this would come from a cart context/state)
-const cartItems = [
-  {
-    id: '1',
-    title: 'Wireless Noise Cancelling Headphones',
-    price: 249.99,
-    image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=2670&auto=format&fit=crop',
-    quantity: 1,
-  },
-  {
-    id: '3',
-    title: 'Premium Laptop Stand',
-    price: 49.99,
-    image: 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?q=80&w=2670&auto=format&fit=crop',
-    quantity: 2,
-  },
-];
+import { useCart } from '../context/CartContext';
 
 const Checkout: React.FC = () => {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const { user } = useAuth();
+  const { cartItems, saveShippingAddress, clearCart, loading, shippingAddress } = useCart();
+  
+  // Redirect if cart is empty
+  useEffect(() => {
+    if (!loading && cartItems.length === 0) {
+      navigate('/cart');
+    }
+  }, [cartItems, navigate, loading]);
   
   // Form states
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [address, setAddress] = useState('');
-  const [city, setCity] = useState('');
+  const [firstName, setFirstName] = useState(user?.name?.split(' ')[0] || '');
+  const [lastName, setLastName] = useState(user?.name?.split(' ')[1] || '');
+  const [email, setEmail] = useState(user?.email || '');
+  const [address, setAddress] = useState(shippingAddress?.address || '');
+  const [city, setCity] = useState(shippingAddress?.city || '');
   const [state, setState] = useState('');
-  const [zip, setZip] = useState('');
-  const [country, setCountry] = useState('United States');
+  const [zip, setZip] = useState(shippingAddress?.postalCode || '');
+  const [country, setCountry] = useState(shippingAddress?.country || 'United States');
   
   // Payment states
   const [cardName, setCardName] = useState('');
@@ -44,7 +35,7 @@ const Checkout: React.FC = () => {
   const [expMonth, setExpMonth] = useState('');
   const [expYear, setExpYear] = useState('');
   const [cvv, setCvv] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('card');
+  const [paymentMethod, setPaymentMethod] = useState('razorpay');
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [isOrderComplete, setIsOrderComplete] = useState(false);
@@ -61,13 +52,25 @@ const Checkout: React.FC = () => {
   // Check if Razorpay is loaded
   useEffect(() => {
     if (!isRazorpayLoaded()) {
-      console.warn('Razorpay script not loaded. Please check your internet connection.');
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      document.body.appendChild(script);
     }
   }, []);
 
   // Handle shipping form submission
   const handleShippingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Save shipping address to context
+    saveShippingAddress({
+      address,
+      city,
+      postalCode: zip,
+      country
+    });
+    
     setCurrentStep(2);
     window.scrollTo(0, 0);
   };
@@ -96,6 +99,9 @@ const Checkout: React.FC = () => {
         setOrderId(localOrderId);
         setIsProcessing(false);
         setIsOrderComplete(true);
+        
+        // Clear the cart after successful order
+        clearCart();
       },
       prefill: {
         name: `${firstName} ${lastName}`,
@@ -104,6 +110,11 @@ const Checkout: React.FC = () => {
       },
       theme: {
         color: '#4F46E5',
+      },
+      modal: {
+        ondismiss: function() {
+          setIsProcessing(false);
+        }
       }
     };
 
@@ -142,6 +153,9 @@ const Checkout: React.FC = () => {
         setOrderId(randomOrderId);
         setIsProcessing(false);
         setIsOrderComplete(true);
+        
+        // Clear the cart after successful order
+        clearCart();
       }, 2000);
     }
   };
@@ -151,11 +165,23 @@ const Checkout: React.FC = () => {
     navigate('/');
   };
 
+  if (loading) {
+    return (
+      <div>
+        <Navbar />
+        <div className="bg-gray-50 min-h-screen flex justify-center items-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-600"></div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div>
       <Navbar />
       
-      <div className="bg-gray-50 py-8">
+      <div className="bg-gray-50 py-8 min-h-screen">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Order Complete Page */}
           {isOrderComplete ? (
@@ -176,7 +202,7 @@ const Checkout: React.FC = () => {
                   Continue Shopping
                 </button>
                 <Link 
-                  to="/orders" 
+                  to="/profile" 
                   className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                 >
                   View My Orders
@@ -322,6 +348,7 @@ const Checkout: React.FC = () => {
                               <option value="Canada">Canada</option>
                               <option value="United Kingdom">United Kingdom</option>
                               <option value="Australia">Australia</option>
+                              <option value="India">India</option>
                             </select>
                           </div>
                         </div>
@@ -524,7 +551,7 @@ const Checkout: React.FC = () => {
                 
                 {/* Order Summary */}
                 <div className="lg:col-span-1">
-                  <div className="bg-white rounded-lg shadow-sm p-6">
+                  <div className="bg-white rounded-lg shadow-sm p-6 sticky top-8">
                     <h2 className="text-lg font-medium mb-6">Order Summary</h2>
                     
                     <div className="mb-6">

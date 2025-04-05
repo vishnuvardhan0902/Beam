@@ -10,6 +10,7 @@ const {
   getUserById,
   updateUser,
   googleAuth,
+  updateUserCart,
 } = require('../controllers/userController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
@@ -30,5 +31,8 @@ router
   .delete(protect, admin, deleteUser)
   .get(protect, admin, getUserById)
   .put(protect, admin, updateUser);
+
+// Add the new route
+router.put('/cart', protect, updateUserCart);
 
 module.exports = router; 

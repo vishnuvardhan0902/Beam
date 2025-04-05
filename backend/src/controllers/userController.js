@@ -75,6 +75,9 @@ const getUserProfile = asyncHandler(async (req, res) => {
       name: user.name,
       email: user.email,
       isAdmin: user.isAdmin,
+      avatar: user.avatar,
+      createdAt: user.createdAt,
+      cart: user.cart || [],
     });
   } else {
     res.status(404);
@@ -225,6 +228,54 @@ const googleAuth = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Update user cart
+// @route   PUT /api/users/cart
+// @access  Private
+const updateUserCart = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id);
+
+  if (user) {
+    try {
+      // Validate cart items
+      const cartItems = req.body.cartItems || [];
+      
+      // Check if cartItems is an array
+      if (!Array.isArray(cartItems)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cart items must be an array'
+        });
+      }
+      
+      // Validate cart item structure
+      for (const item of cartItems) {
+        if (!item.productId || !item.name || !item.image || typeof item.price !== 'number' || typeof item.quantity !== 'number') {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid cart item structure'
+          });
+        }
+      }
+      
+      // Update cart items
+      user.cart = cartItems;
+      
+      const updatedUser = await user.save();
+
+      res.json({
+        success: true,
+        cart: updatedUser.cart
+      });
+    } catch (error) {
+      res.status(400);
+      throw new Error('Error updating cart: ' + error.message);
+    }
+  } else {
+    res.status(404);
+    throw new Error('User not found');
+  }
+});
+
 module.exports = {
   authUser,
   registerUser,
@@ -235,4 +286,5 @@ module.exports = {
   getUserById,
   updateUser,
   googleAuth,
+  updateUserCart
 }; 

@@ -1,11 +1,9 @@
 export interface CartItem {
-  product: string;
-  name: string;
-  image: string;
+  id: string;
+  title: string;
   price: number;
-  countInStock: number;
-  qty: number;
-  color: string;
+  image: string;
+  quantity: number;
 }
 
 export interface ShippingAddress {
@@ -19,17 +17,25 @@ export interface CartContextType {
   cartItems: CartItem[];
   shippingAddress: ShippingAddress | null;
   paymentMethod: string;
-  itemCount: number;
-  addToCart: (id: string, qty: number, color: string) => Promise<void>;
-  removeFromCart: (id: string, color: string) => void;
-  updateCartItemQty: (id: string, qty: number, color: string) => void;
+  loading: boolean;
+  addToCart: (item: CartItem) => void;
+  removeFromCart: (id: string) => void;
+  updateCartQuantity: (id: string, quantity: number) => void;
   saveShippingAddress: (data: ShippingAddress) => void;
-  savePaymentMethod: (method: string) => void;
+  savePaymentMethod: (data: string) => void;
   clearCart: () => void;
 }
 
+// This enables importing from CartContext.tsx
 declare module '../context/CartContext' {
   export const CartProvider: React.FC<{ children: React.ReactNode }>;
   export const useCart: () => CartContextType;
-  export default CartContextType;
+  export default CartContext;
+}
+
+// This enables importing from CartContext.tsx with the .tsx extension
+declare module '../context/CartContext.tsx' {
+  export const CartProvider: React.FC<{ children: React.ReactNode }>;
+  export const useCart: () => CartContextType;
+  export default CartContext;
 } 
