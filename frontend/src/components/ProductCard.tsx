@@ -62,8 +62,8 @@ const ProductCard: React.FC<ProductCardProps> = (props) => {
           <img
             src={imageUrl}
             alt={title || 'Product'}
-            className={`h-full w-full object-cover object-center transition-transform duration-300 ${
-              isHovered ? 'scale-105' : 'scale-100'
+            className={`h-full w-full object-contain sm:object-cover object-center transition-transform duration-300 ${
+              isHovered ? 'scale-100' : 'scale-90'
             }`}
             onError={(e) => {
               e.currentTarget.src = 'https://via.placeholder.com/300';

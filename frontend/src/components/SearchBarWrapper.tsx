@@ -1,27 +1,24 @@
 import React from 'react';
+import SearchBarComponent from './SearchBar';
 
 interface SearchBarProps {
   className?: string;
 }
 
-// Try to import the SearchBar component
-let SearchBar: React.FC<SearchBarProps>;
-try {
-  SearchBar = require('./SearchBar').default;
-} catch (error) {
-  console.warn('SearchBar component not found:', error);
-  // Fallback SearchBar component
-  SearchBar = ({ className }: SearchBarProps) => (
-    <div className={className}>
-      <input
-        type="text"
-        placeholder="Search products..."
-        className="w-full px-4 py-2 border border-gray-300 rounded-md"
-        disabled
-      />
-    </div>
-  );
-}
+// Create a fallback component
+const FallbackSearchBar: React.FC<SearchBarProps> = ({ className }: SearchBarProps) => (
+  <div className={className}>
+    <input
+      type="text"
+      placeholder="Search products..."
+      className="w-full px-4 py-2 border border-gray-300 rounded-md"
+      disabled
+    />
+  </div>
+);
+
+// Use proper import with fallback
+const SearchBar: React.FC<SearchBarProps> = SearchBarComponent || FallbackSearchBar;
 
 const SearchBarWrapper: React.FC<SearchBarProps> = (props) => {
   return <SearchBar {...props} />;
