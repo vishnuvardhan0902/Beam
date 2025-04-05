@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { createRazorpayOrder, initializeRazorpayPayment, isRazorpayLoaded } from '../services/razorpay';
+import { useAuth } from '../context/AuthContext';
 
 // Mock cart data (in a real app, this would come from a cart context/state)
 const cartItems = [
@@ -24,6 +26,7 @@ const cartItems = [
 const Checkout: React.FC = () => {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
+  const { user } = useAuth();
   
   // Form states
   const [firstName, setFirstName] = useState('');
@@ -41,6 +44,7 @@ const Checkout: React.FC = () => {
   const [expMonth, setExpMonth] = useState('');
   const [expYear, setExpYear] = useState('');
   const [cvv, setCvv] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('card');
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [isOrderComplete, setIsOrderComplete] = useState(false);
@@ -50,7 +54,16 @@ const Checkout: React.FC = () => {
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const shipping = subtotal > 100 ? 0 : 10.99;
   const tax = subtotal * 0.08; // 8% tax
-  const total = subtotal + shipping + tax;
+  const rawTotal = subtotal + shipping + tax;
+  const discount = rawTotal - 1; // Discount to make total 1 rupee when converted to INR
+  const total = 1; // Set final total to 1 rupee (for Razorpay testing)
+
+  // Check if Razorpay is loaded
+  useEffect(() => {
+    if (!isRazorpayLoaded()) {
+      console.warn('Razorpay script not loaded. Please check your internet connection.');
+    }
+  }, []);
 
   // Handle shipping form submission
   const handleShippingSubmit = (e: React.FormEvent) => {
@@ -59,18 +72,78 @@ const Checkout: React.FC = () => {
     window.scrollTo(0, 0);
   };
 
+  // Handle direct Razorpay payment
+  const handleDirectRazorpayPayment = () => {
+    if (!isRazorpayLoaded()) {
+      console.error('Razorpay script not loaded');
+      alert('Payment gateway is not available. Please try again later.');
+      return;
+    }
+
+    setIsProcessing(true);
+    
+    // Using Razorpay directly with 1 rupee total
+    const options = {
+      key: 'rzp_test_Bv9HsrboraxaMb',
+      amount: 100, // 1 rupee = 100 paise
+      currency: 'INR',
+      name: 'Beam',
+      description: `Order for ${cartItems.length} items`,
+      handler: function(response: any) {
+        console.log("Payment successful:", response);
+        // Generate a local order ID
+        const localOrderId = 'order_' + Math.random().toString(36).substring(2, 9).toUpperCase();
+        setOrderId(localOrderId);
+        setIsProcessing(false);
+        setIsOrderComplete(true);
+      },
+      prefill: {
+        name: `${firstName} ${lastName}`,
+        email: email,
+        contact: '',
+      },
+      theme: {
+        color: '#4F46E5',
+      }
+    };
+
+    try {
+      const paymentObject = new (window as any).Razorpay(options);
+      paymentObject.open();
+    } catch (err) {
+      console.error("Error opening Razorpay:", err);
+      setIsProcessing(false);
+      alert('There was an error opening the payment gateway. Please try again.');
+    }
+  };
+
   // Handle payment form submission
-  const handlePaymentSubmit = (e: React.FormEvent) => {
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsProcessing(true);
     
-    // Simulate payment processing
-    setTimeout(() => {
-      const randomOrderId = Math.random().toString(36).substring(2, 9).toUpperCase();
-      setOrderId(randomOrderId);
-      setIsProcessing(false);
-      setIsOrderComplete(true);
-    }, 2000);
+    if (paymentMethod === 'razorpay') {
+      try {
+        if (!isRazorpayLoaded()) {
+          throw new Error('Razorpay is not available. Please try another payment method.');
+        }
+        
+        // Use direct checkout for simplicity
+        handleDirectRazorpayPayment();
+      } catch (error) {
+        console.error('Payment failed:', error);
+        setIsProcessing(false);
+        alert('Payment failed. Please try again.');
+      }
+    } else {
+      // Original card payment code (simulation)
+      setTimeout(() => {
+        const randomOrderId = Math.random().toString(36).substring(2, 9).toUpperCase();
+        setOrderId(randomOrderId);
+        setIsProcessing(false);
+        setIsOrderComplete(true);
+      }, 2000);
+    }
   };
 
   // Handle continuing shopping after order
@@ -286,129 +359,137 @@ const Checkout: React.FC = () => {
                           </p>
                         </div>
                         
-                        <div className="mb-6">
+                        <div className="mb-6 space-y-4">
+                          {/* Credit Card Option */}
                           <div className="flex items-center space-x-3">
                             <input
                               id="card"
                               name="paymentMethod"
                               type="radio"
                               className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
-                              checked
-                              readOnly
+                              checked={paymentMethod === 'card'}
+                              onChange={() => setPaymentMethod('card')}
                             />
                             <label htmlFor="card" className="text-sm font-medium text-gray-700">
                               Credit / Debit Card
                             </label>
                           </div>
                           
-                          <div className="mt-3 ml-7 flex space-x-3">
-                            <div className="p-1 border border-gray-200 rounded">
-                              <svg className="w-8 h-6" viewBox="0 0 40 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <rect width="40" height="24" rx="2" fill="#E6E6E6"/>
-                                <path d="M11 9H29V15H11V9Z" fill="#FF5F00"/>
-                                <path d="M12 12C12 10.3431 12.7795 8.84392 14 7.85781C12.7663 6.58335 11.0773 5.8 9.19231 5.8C5.22835 5.8 2 8.59492 2 12C2 15.4051 5.22835 18.2 9.19231 18.2C11.0773 18.2 12.7663 17.4166 14 16.1422C12.7795 15.1561 12 13.6569 12 12Z" fill="#EB001B"/>
-                                <path d="M38 12C38 15.4051 34.7716 18.2 30.8077 18.2C28.9227 18.2 27.2337 17.4166 26 16.1422C27.2205 15.1561 28 13.6569 28 12C28 10.3431 27.2205 8.84392 26 7.85781C27.2337 6.58335 28.9227 5.8 30.8077 5.8C34.7716 5.8 38 8.59492 38 12Z" fill="#F79E1B"/>
-                              </svg>
-                            </div>
-                            <div className="p-1 border border-gray-200 rounded">
-                              <svg className="w-8 h-6" viewBox="0 0 40 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <rect width="40" height="24" rx="2" fill="#E6E6E6"/>
-                                <path d="M15 17H12L9 7H12L15 17Z" fill="#1434CB"/>
-                                <path d="M24 7C22.6 7 21.5 7.5 21.5 8.5C21.5 9.8 23.4 10 23.4 11.3C23.4 12 22.8 12.5 22 12.5C21 12.5 20.4 12 20.4 12L20.1 14C20.6 14.3 21.5 14.5 22.3 14.5C24 14.5 25.4 13.5 25.4 12C25.4 10.4 23.5 10.2 23.5 9.1C23.5 8.6 24 8.3 24.7 8.3C25.4 8.3 26 8.6 26 8.6L26.3 6.8C25.8 6.5 25 6.3 24 7Z" fill="#1434CB"/>
-                                <path d="M27.3 7.2C26.9 7.2 26.7 7.4 26.5 7.9L23 17H25L25.5 15.5H28.3L28.6 17H31L29.2 7.2H27.3ZM26.1 13.7L27.1 10.3L27.7 13.7H26.1Z" fill="#1434CB"/>
-                                <path d="M19.5 7L18 13.5L17.8 12.7C17.4 11.3 16 10 14.5 9.2L16.8 17H19L23 7H19.5Z" fill="#1434CB"/>
-                              </svg>
-                            </div>
+                          {/* Razorpay Option */}
+                          <div className="flex items-center space-x-3">
+                            <input
+                              id="razorpay"
+                              name="paymentMethod"
+                              type="radio"
+                              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                              checked={paymentMethod === 'razorpay'}
+                              onChange={() => setPaymentMethod('razorpay')}
+                            />
+                            <label htmlFor="razorpay" className="text-sm font-medium text-gray-700 flex items-center">
+                              Razorpay
+                              <img src="https://razorpay.com/assets/razorpay-logo-white.svg" alt="Razorpay" className="h-6 ml-2 bg-indigo-600 p-1 rounded" />
+                            </label>
                           </div>
                         </div>
                         
-                        <div className="grid grid-cols-1 gap-6">
-                          <div>
-                            <label htmlFor="cardName" className="block text-sm font-medium text-gray-700 mb-1">
-                              Cardholder Name
-                            </label>
-                            <input
-                              type="text"
-                              id="cardName"
-                              value={cardName}
-                              onChange={(e) => setCardName(e.target.value)}
-                              required
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                            />
-                          </div>
-                          
-                          <div>
-                            <label htmlFor="cardNumber" className="block text-sm font-medium text-gray-700 mb-1">
-                              Card Number
-                            </label>
-                            <input
-                              type="text"
-                              id="cardNumber"
-                              value={cardNumber}
-                              onChange={(e) => setCardNumber(e.target.value)}
-                              placeholder="1234 5678 9012 3456"
-                              required
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                            />
-                          </div>
-                          
-                          <div className="grid grid-cols-3 gap-4">
+                        {/* Show card form only if card payment method is selected */}
+                        {paymentMethod === 'card' && (
+                          <div className="grid grid-cols-1 gap-6">
                             <div>
-                              <label htmlFor="expMonth" className="block text-sm font-medium text-gray-700 mb-1">
-                                Exp. Month
-                              </label>
-                              <select
-                                id="expMonth"
-                                value={expMonth}
-                                onChange={(e) => setExpMonth(e.target.value)}
-                                required
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                              >
-                                <option value="">Month</option>
-                                {Array.from({ length: 12 }, (_, i) => (
-                                  <option key={i} value={String(i + 1).padStart(2, '0')}>
-                                    {String(i + 1).padStart(2, '0')}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                            
-                            <div>
-                              <label htmlFor="expYear" className="block text-sm font-medium text-gray-700 mb-1">
-                                Exp. Year
-                              </label>
-                              <select
-                                id="expYear"
-                                value={expYear}
-                                onChange={(e) => setExpYear(e.target.value)}
-                                required
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                              >
-                                <option value="">Year</option>
-                                {Array.from({ length: 10 }, (_, i) => (
-                                  <option key={i} value={String(new Date().getFullYear() + i)}>
-                                    {new Date().getFullYear() + i}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                            
-                            <div>
-                              <label htmlFor="cvv" className="block text-sm font-medium text-gray-700 mb-1">
-                                CVV
+                              <label htmlFor="cardName" className="block text-sm font-medium text-gray-700 mb-1">
+                                Cardholder Name
                               </label>
                               <input
                                 type="text"
-                                id="cvv"
-                                value={cvv}
-                                onChange={(e) => setCvv(e.target.value)}
-                                placeholder="123"
+                                id="cardName"
+                                value={cardName}
+                                onChange={(e) => setCardName(e.target.value)}
                                 required
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                               />
                             </div>
+                            
+                            <div>
+                              <label htmlFor="cardNumber" className="block text-sm font-medium text-gray-700 mb-1">
+                                Card Number
+                              </label>
+                              <input
+                                type="text"
+                                id="cardNumber"
+                                value={cardNumber}
+                                onChange={(e) => setCardNumber(e.target.value)}
+                                placeholder="1234 5678 9012 3456"
+                                required
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                              />
+                            </div>
+                            
+                            <div className="grid grid-cols-3 gap-4">
+                              <div>
+                                <label htmlFor="expMonth" className="block text-sm font-medium text-gray-700 mb-1">
+                                  Exp. Month
+                                </label>
+                                <select
+                                  id="expMonth"
+                                  value={expMonth}
+                                  onChange={(e) => setExpMonth(e.target.value)}
+                                  required
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                >
+                                  <option value="">Month</option>
+                                  {Array.from({ length: 12 }, (_, i) => (
+                                    <option key={i} value={String(i + 1).padStart(2, '0')}>
+                                      {String(i + 1).padStart(2, '0')}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              
+                              <div>
+                                <label htmlFor="expYear" className="block text-sm font-medium text-gray-700 mb-1">
+                                  Exp. Year
+                                </label>
+                                <select
+                                  id="expYear"
+                                  value={expYear}
+                                  onChange={(e) => setExpYear(e.target.value)}
+                                  required
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                >
+                                  <option value="">Year</option>
+                                  {Array.from({ length: 10 }, (_, i) => (
+                                    <option key={i} value={String(new Date().getFullYear() + i)}>
+                                      {new Date().getFullYear() + i}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              
+                              <div>
+                                <label htmlFor="cvv" className="block text-sm font-medium text-gray-700 mb-1">
+                                  CVV
+                                </label>
+                                <input
+                                  type="text"
+                                  id="cvv"
+                                  value={cvv}
+                                  onChange={(e) => setCvv(e.target.value)}
+                                  placeholder="123"
+                                  required
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                />
+                              </div>
+                            </div>
                           </div>
-                        </div>
+                        )}
+                        
+                        {paymentMethod === 'razorpay' && (
+                          <div className="p-4 bg-indigo-50 rounded-md mb-4">
+                            <p className="text-sm text-indigo-700">
+                              You will be redirected to Razorpay's secure payment gateway to complete your payment.
+                            </p>
+                          </div>
+                        )}
                         
                         <div className="mt-8 flex justify-end">
                           <button
@@ -484,9 +565,13 @@ const Checkout: React.FC = () => {
                         <p className="text-gray-600">Tax</p>
                         <p className="font-medium">${tax.toFixed(2)}</p>
                       </div>
+                      <div className="flex justify-between text-sm mb-2 text-red-600">
+                        <p className="font-medium">Special Discount</p>
+                        <p className="font-medium">-${discount.toFixed(2)}</p>
+                      </div>
                       <div className="flex justify-between text-base font-medium mt-4 pt-4 border-t border-gray-200">
                         <p>Total</p>
-                        <p>${total.toFixed(2)}</p>
+                        <p>₹{total.toFixed(2)}</p>
                       </div>
                     </div>
                   </div>
