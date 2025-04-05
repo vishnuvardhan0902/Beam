@@ -9,7 +9,7 @@ const Cart: React.FC = () => {
   const { cartItems, removeFromCart, updateCartQuantity, loading } = useCart();
 
   // Calculate totals
-  const itemsPrice = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  const itemsPrice = cartItems.reduce((acc, item) => acc + (item.price || 0) * (item.quantity || 1), 0);
   const shippingPrice = itemsPrice > 100 ? 0 : 10;
   const taxPrice = itemsPrice * 0.08;
   const totalPrice = itemsPrice + shippingPrice + taxPrice;
@@ -24,6 +24,11 @@ const Cart: React.FC = () => {
 
   const handleCheckout = () => {
     navigate('/checkout');
+  };
+
+  // Helper function to safely format prices
+  const formatPrice = (price?: number) => {
+    return (price || 0).toFixed(2);
   };
 
   return (
@@ -54,7 +59,7 @@ const Cart: React.FC = () => {
               <div className="lg:col-span-2">
                 <div className="bg-white rounded-lg shadow-sm p-6">
                   <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-lg font-medium">Cart Items ({cartItems.reduce((acc, item) => acc + item.quantity, 0)})</h2>
+                    <h2 className="text-lg font-medium">Cart Items ({cartItems.reduce((acc, item) => acc + (item.quantity || 1), 0)})</h2>
                     <span className="text-sm text-gray-500">Price</span>
                   </div>
                   
@@ -77,9 +82,9 @@ const Cart: React.FC = () => {
                                   {item.title}
                                 </Link>
                               </h3>
-                              <p className="ml-4">${(item.price * item.quantity).toFixed(2)}</p>
+                              <p className="ml-4">${formatPrice((item.price || 0) * (item.quantity || 1))}</p>
                             </div>
-                            <p className="mt-1 text-sm text-gray-500">${item.price.toFixed(2)} each</p>
+                            <p className="mt-1 text-sm text-gray-500">${formatPrice(item.price)} each</p>
                           </div>
                           
                           <div className="flex-1 flex items-end justify-between text-sm">
@@ -89,7 +94,7 @@ const Cart: React.FC = () => {
                               </label>
                               <select
                                 id={`quantity-${item.id}`}
-                                value={item.quantity}
+                                value={item.quantity || 1}
                                 onChange={(e) => handleQuantityChange(item.id, parseInt(e.target.value))}
                                 className="border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                               >
@@ -128,20 +133,20 @@ const Cart: React.FC = () => {
                   
                   <div className="border-t border-gray-200 pt-4">
                     <div className="flex justify-between text-sm mb-2">
-                      <p className="text-gray-600">Subtotal ({cartItems.reduce((acc, item) => acc + item.quantity, 0)} items)</p>
-                      <p className="font-medium">${itemsPrice.toFixed(2)}</p>
+                      <p className="text-gray-600">Subtotal ({cartItems.reduce((acc, item) => acc + (item.quantity || 1), 0)} items)</p>
+                      <p className="font-medium">${formatPrice(itemsPrice)}</p>
                     </div>
                     <div className="flex justify-between text-sm mb-2">
                       <p className="text-gray-600">Shipping</p>
-                      <p className="font-medium">{shippingPrice === 0 ? 'Free' : `$${shippingPrice.toFixed(2)}`}</p>
+                      <p className="font-medium">{shippingPrice === 0 ? 'Free' : `$${formatPrice(shippingPrice)}`}</p>
                     </div>
                     <div className="flex justify-between text-sm mb-2">
                       <p className="text-gray-600">Tax</p>
-                      <p className="font-medium">${taxPrice.toFixed(2)}</p>
+                      <p className="font-medium">${formatPrice(taxPrice)}</p>
                     </div>
                     <div className="flex justify-between text-base font-medium mt-4 pt-4 border-t border-gray-200">
                       <p>Total</p>
-                      <p>${totalPrice.toFixed(2)}</p>
+                      <p>${formatPrice(totalPrice)}</p>
                     </div>
                   </div>
                   

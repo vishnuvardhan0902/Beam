@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuthContext } from '../context/AuthContext';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -8,7 +8,7 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, adminOnly = false }) => {
-  const { user, isAuthenticated, loading } = useAuth();
+  const { user, isAuthenticated, loading } = useAuthContext();
   const location = useLocation();
 
   if (loading) {

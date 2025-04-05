@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
 import { CartItem, ShippingAddress, CartContextType } from '../types/cart';
-import { useAuth } from './AuthContext';
+import { useAuthContext } from './AuthContext';
 import { updateUserCart, getUserCart } from '../services/api';
 import axios from 'axios';
 
@@ -37,7 +37,7 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
   const [shippingAddress, setShippingAddress] = useState<ShippingAddress | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuthContext();
 
   // Load cart from localStorage when component mounts
   useEffect(() => {
@@ -54,15 +54,6 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
         // If user is authenticated, load cart from database
         if (isAuthenticated && user) {
           try {
-            const token = localStorage.getItem('token') || user.token;
-            
-            if (!token) {
-              console.error('No authentication token found');
-              setLoading(false);
-              return;
-            }
-            
-            // Use the API function instead of direct axios call
             const userCartData = await getUserCart();
             
             if (userCartData && userCartData.length > 0) {
@@ -74,10 +65,15 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
             } else if (initialCart.length > 0) {
               // If local cart has items but server doesn't, sync to server
               console.log('Syncing local cart to database:', initialCart);
-              await updateUserCart(mapFrontendCartToDb(initialCart));
+              try {
+                await updateUserCart(mapFrontendCartToDb(initialCart));
+              } catch (error) {
+                console.error('Error syncing local cart to database:', error);
+              }
             }
           } catch (error) {
             console.error('Error loading cart from database:', error);
+            // Continue with local cart if database fetch fails
           }
         }
         
@@ -100,71 +96,75 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     loadCartData();
   }, [isAuthenticated, user]);
 
-  // Monitor authentication changes to sync cart
+  // Sync cart with database when user logs in/out
   useEffect(() => {
-    if (isAuthenticated && user) {
-      console.log('User logged in, syncing cart with database');
-      // When user logs in, sync their cart with the database
-      const syncCartOnLogin = async () => {
-        try {
-          if (cartItems.length > 0) {
-            await syncCartWithDatabase(cartItems);
-          } else {
-            // If local cart is empty, try to get the cart from the database
-            const userCartData = await getUserCart();
-            if (userCartData && userCartData.length > 0) {
-              // Convert DB format to frontend format
-              const dbCartItems = mapDbCartToFrontend(userCartData);
-              setCartItems(dbCartItems);
-              localStorage.setItem('cartItems', JSON.stringify(dbCartItems));
-            }
-          }
-        } catch (error) {
-          console.error('Error syncing cart on login:', error);
-        }
-      };
-      
-      syncCartOnLogin();
-    }
-  }, [isAuthenticated, user?.token]); // Only trigger when auth status or token changes
-
-  // Helper function to sync cart with the database
-  const syncCartWithDatabase = async (items: CartItem[]) => {
-    if (isAuthenticated && user) {
-      try {
-        const token = localStorage.getItem('token') || user.token;
-        
-        if (!token) {
-          console.error('No authentication token found');
-          return;
-        }
-        
-        // Convert frontend cart items to DB format
-        const dbCartItems = mapFrontendCartToDb(items);
-        
-        // Use the API function instead of direct axios call
-        await updateUserCart(dbCartItems);
-        console.log('Cart synced with database successfully');
-      } catch (error) {
-        console.error('Error syncing cart with database:', error);
+    const syncCartWithDatabase = async () => {
+      if (!user) {
+        // User logged out, clear cart
+        setCartItems([]);
+        localStorage.removeItem('cartItems');
+        return;
       }
-    }
+
+      try {
+        // Get cart from database
+        const dbCart = await getUserCart();
+        
+        if (dbCart && dbCart.length > 0) {
+          // Merge local cart with database cart
+          const mergedCart = mergeCarts(cartItems, dbCart);
+          // Only update if there are actual changes
+          if (JSON.stringify(mergedCart) !== JSON.stringify(cartItems)) {
+            setCartItems(mergedCart);
+            localStorage.setItem('cartItems', JSON.stringify(mergedCart));
+          }
+        } else if (cartItems.length > 0) {
+          // If no cart in database but we have local items, save to database
+          try {
+            await updateUserCart(mapFrontendCartToDb(cartItems));
+          } catch (error) {
+            console.error('Error saving local cart to database:', error);
+          }
+        }
+      } catch (error) {
+        console.error('Error syncing cart:', error);
+        // Don't throw error, just log it
+      }
+    };
+
+    // Only sync when user changes
+    syncCartWithDatabase();
+  }, [user]); // Only depend on user changes
+
+  // Helper function to merge carts
+  const mergeCarts = (localCart: CartItem[], dbCart: CartItem[]) => {
+    const mergedCart = [...localCart];
+    
+    dbCart.forEach(dbItem => {
+      const existingItem = mergedCart.find(item => item.id === dbItem.id);
+      if (existingItem) {
+        // If item exists in both carts, take the larger quantity
+        existingItem.quantity = Math.max(existingItem.quantity, dbItem.quantity);
+      } else {
+        // If item only exists in db cart, add it to merged cart
+        mergedCart.push(dbItem);
+      }
+    });
+    
+    return mergedCart;
   };
 
   // Add to cart
-  const addToCart = (item: CartItem) => {
-    console.log('Adding item to cart:', item);
+  const addToCart = async (item: CartItem) => {
     const existItem = cartItems.find((x) => x.id === item.id);
     
     let updatedCart: CartItem[];
     
     if (existItem) {
-      console.log('Item already exists in cart, updating quantity');
       updatedCart = cartItems.map((x) =>
         x.id === existItem.id ? { ...x, quantity: x.quantity + item.quantity } : x
       );
     } else {
-      console.log('Adding new item to cart');
       updatedCart = [...cartItems, item];
     }
     
@@ -172,33 +172,33 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     localStorage.setItem('cartItems', JSON.stringify(updatedCart));
     
     // Sync with database if user is authenticated
-    if (isAuthenticated && user) {
-      console.log('User is authenticated, syncing with database');
-      syncCartWithDatabase(updatedCart);
-    } else {
-      console.log('User is not authenticated, cart saved to localStorage only');
+    if (user) {
+      try {
+        await updateUserCart(updatedCart);
+      } catch (error) {
+        console.error('Error syncing cart with database:', error);
+      }
     }
   };
 
   // Remove from cart
-  const removeFromCart = (id: string) => {
-    console.log('Removing item from cart, id:', id);
+  const removeFromCart = async (id: string) => {
     const updatedCart = cartItems.filter((x) => x.id !== id);
     setCartItems(updatedCart);
     localStorage.setItem('cartItems', JSON.stringify(updatedCart));
     
     // Sync with database if user is authenticated
-    if (isAuthenticated && user) {
-      console.log('User is authenticated, syncing with database');
-      syncCartWithDatabase(updatedCart);
-    } else {
-      console.log('User is not authenticated, cart saved to localStorage only');
+    if (user) {
+      try {
+        await updateUserCart(updatedCart);
+      } catch (error) {
+        console.error('Error syncing cart with database:', error);
+      }
     }
   };
 
   // Update cart item quantity
-  const updateCartQuantity = (id: string, quantity: number) => {
-    console.log('Updating cart item quantity, id:', id, 'quantity:', quantity);
+  const updateCartQuantity = async (id: string, quantity: number) => {
     const updatedCart = cartItems.map((item) =>
       item.id === id ? { ...item, quantity } : item
     );
@@ -206,11 +206,12 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     localStorage.setItem('cartItems', JSON.stringify(updatedCart));
     
     // Sync with database if user is authenticated
-    if (isAuthenticated && user) {
-      console.log('User is authenticated, syncing with database');
-      syncCartWithDatabase(updatedCart);
-    } else {
-      console.log('User is not authenticated, cart saved to localStorage only');
+    if (user) {
+      try {
+        await updateUserCart(updatedCart);
+      } catch (error) {
+        console.error('Error syncing cart with database:', error);
+      }
     }
   };
 
@@ -233,7 +234,7 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     
     // Clear cart in database if user is authenticated
     if (isAuthenticated && user) {
-      syncCartWithDatabase([]);
+      syncCartWithDatabase();
     }
   };
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuthContext } from '../context/AuthContext';
 import { 
   updateUserProfile, 
   getUserProfile, 
@@ -73,7 +73,7 @@ interface Order {
 }
 
 const Profile: React.FC = () => {
-  const { user: authUser, loading: authLoading } = useAuth();
+  const { user: authUser, loading: authLoading } = useAuthContext();
   
   const [activeTab, setActiveTab] = useState<TabType>('account');
   const [isEditing, setIsEditing] = useState(false);

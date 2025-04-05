@@ -14,16 +14,16 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 
 // Import context providers
-import { AuthProvider } from './context/AuthContext';
+import { AuthContextProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 
 // Wrapper component
 const ContextWrapper: React.FC<{ children: ReactNode }> = ({ children }) => {
   return (
     <Suspense fallback={<div>Loading...</div>}>
-      <AuthProvider>
+      <AuthContextProvider>
         <CartProvider>{children}</CartProvider>
-      </AuthProvider>
+      </AuthContextProvider>
     </Suspense>
   );
 };

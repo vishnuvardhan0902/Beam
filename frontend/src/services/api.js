@@ -13,7 +13,7 @@ const api = axios.create({
 // Add request interceptor to include the auth token in all requests
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('userToken') || localStorage.getItem('token');
+    const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -55,45 +55,65 @@ export const getTopProducts = async () => {
 // Auth
 export const login = async (email, password) => {
   try {
-    const { data } = await api.post('/users/login', { email, password });
-    localStorage.setItem('userInfo', JSON.stringify(data));
-    localStorage.setItem('token', data.token);
+    const { data } = await api.post('/auth/login', { email, password });
+    if (data.token) {
+      localStorage.setItem('userInfo', JSON.stringify(data));
+      localStorage.setItem('token', data.token);
+      api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+    }
     return data;
   } catch (error) {
-    throw error.response?.data?.message || error.message;
+    const message = error.response?.data?.message || error.message || 'Login failed';
+    throw new Error(message);
   }
 };
 
 export const googleLogin = async (googleData) => {
   try {
+    // Log the data being sent
+    console.log('Sending Google data to backend:', googleData);
+    
     const { data } = await api.post('/users/google', {
       googleId: googleData.googleId,
       email: googleData.email,
       name: googleData.name,
       avatar: googleData.avatar,
     });
-    localStorage.setItem('userInfo', JSON.stringify(data));
-    localStorage.setItem('token', data.token);
+    
+    console.log('Received response from backend:', data);
+    
+    if (data.token) {
+      localStorage.setItem('userInfo', JSON.stringify(data));
+      localStorage.setItem('token', data.token);
+      api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+    }
     return data;
   } catch (error) {
-    throw error.response?.data?.message || error.message;
+    console.error('Google auth API error:', error);
+    const message = error.response?.data?.message || error.message || 'Google login failed';
+    throw new Error(message);
   }
 };
 
 export const register = async (name, email, password) => {
   try {
-    const { data } = await api.post('/users', { name, email, password });
-    localStorage.setItem('userInfo', JSON.stringify(data));
-    localStorage.setItem('token', data.token);
+    const { data } = await api.post('/auth/register', { name, email, password });
+    if (data.token) {
+      localStorage.setItem('userInfo', JSON.stringify(data));
+      localStorage.setItem('token', data.token);
+      api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+    }
     return data;
   } catch (error) {
-    throw error.response?.data?.message || error.message;
+    const message = error.response?.data?.message || error.message || 'Registration failed';
+    throw new Error(message);
   }
 };
 
 export const logout = () => {
   localStorage.removeItem('userInfo');
   localStorage.removeItem('token');
+  delete api.defaults.headers.common['Authorization'];
   // Don't clear cart items on logout as we want them to persist
   // localStorage.removeItem('cartItems');
   localStorage.removeItem('shippingAddress');
@@ -102,10 +122,16 @@ export const logout = () => {
 
 export const getUserProfile = async () => {
   try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.log('No token found, skipping profile fetch');
+      return null;
+    }
     const { data } = await api.get('/users/profile');
     return data;
   } catch (error) {
-    throw error.response?.data?.message || error.message;
+    console.error('Error fetching user profile:', error);
+    return null;
   }
 };
 
@@ -214,34 +240,38 @@ export const setDefaultPaymentMethod = async (paymentMethodId) => {
 // Cart
 export const updateUserCart = async (cartItems) => {
   try {
-    const { data } = await api.put('/users/cart', { cartItems });
-    return data;
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.log('No token found, skipping cart update');
+      return [];
+    }
+
+    const { data } = await api.put('/users/profile', { 
+      cart: cartItems 
+    });
+    return data.cart || [];
   } catch (error) {
     console.error('Error updating cart:', error);
-    throw error.response?.data?.message || error.message;
+    // Don't throw the error, just log it and return empty array
+    // This prevents the app from crashing when there are auth issues
+    return [];
   }
 };
 
 // Get user cart safely
 export const getUserCart = async () => {
   try {
-    // Check if user is authenticated first
-    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-    
-    if (!userInfo._id || !userInfo.token) {
-      console.log('User is not authenticated, cannot fetch cart');
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.log('No token found, skipping cart fetch');
       return [];
     }
     
     const { data } = await api.get('/users/profile');
-    
-    if (data && data.cart) {
-      return data.cart;
-    }
-    return [];
+    return data.cart || [];
   } catch (error) {
     console.error('Error fetching user cart:', error);
-    // Return empty cart instead of throwing to prevent app crash
+    // Don't throw the error, just log it and return empty array
     return [];
   }
 };

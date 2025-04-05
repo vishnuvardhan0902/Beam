@@ -22,7 +22,7 @@ export interface AuthContextType {
   login: (email: string, password: string) => Promise<User>;
   register: (name: string, email: string, password: string) => Promise<User>;
   googleLogin: () => Promise<User>;
-  logout: () => void;
+  logout: () => Promise<void>;
   isAuthenticated: boolean;
   isAdmin: boolean;
 }
@@ -32,10 +32,4 @@ export interface GoogleUser {
   email: string;
   displayName: string;
   photoURL?: string;
-}
-
-declare module '../context/AuthContext' {
-  export const AuthProvider: React.FC<{ children: React.ReactNode }>;
-  export const useAuth: () => AuthContextType;
-  export default AuthContextType;
 } 

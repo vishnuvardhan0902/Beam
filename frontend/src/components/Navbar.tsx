@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import SearchBarWrapper from './SearchBarWrapper';
-import { useAuth } from '../context/AuthContext';
+import { useAuthContext } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 
 // Add a CSS keyframes animation to the stylesheet
@@ -35,7 +35,7 @@ const Navbar: React.FC = () => {
   const location = useLocation();
   
   // Get auth and cart state
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated } = useAuthContext();
   const { cartItems } = useCart();
   
   // Calculate item count from cart items

@@ -3,13 +3,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { createRazorpayOrder, initializeRazorpayPayment, isRazorpayLoaded } from '../services/razorpay';
-import { useAuth } from '../context/AuthContext';
+import { useAuthContext } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { submitOrder } from '../services/api';
 
 const Checkout: React.FC = () => {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
-  const { user } = useAuth();
+  const { user } = useAuthContext();
   const { cartItems, saveShippingAddress, clearCart, loading, shippingAddress } = useCart();
   
   // Redirect if cart is empty

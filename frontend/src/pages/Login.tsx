@@ -1,15 +1,17 @@
 import React, { useState, useEffect, FormEvent } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuthContext } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { FcGoogle } from 'react-icons/fc';
+import logo from '../assets/logo.svg';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [formError, setFormError] = useState<string>('');
   
-  const { login, googleLogin, user, loading, error } = useAuth();
+  const { login, googleLogin, user, loading, error } = useAuthContext();
   const navigate = useNavigate();
   const location = useLocation();
   

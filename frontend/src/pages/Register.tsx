@@ -1,6 +1,6 @@
 import React, { useState, useEffect, FormEvent } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuthContext } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
@@ -11,7 +11,7 @@ const Register: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [formError, setFormError] = useState<string>('');
   
-  const { register, googleLogin, user, loading, error } = useAuth();
+  const { register, googleLogin, user, loading, error } = useAuthContext();
   const navigate = useNavigate();
   const location = useLocation();
   

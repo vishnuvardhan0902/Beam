@@ -1,8 +1,8 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
-import { login as loginApi, logout as logoutApi, register as registerApi, googleLogin as googleLoginApi } from '../services/api';
+import * as ApiService from '../services/api';
 import { auth, googleProvider } from '../config/firebase';
-import { signInWithPopup, signOut, UserCredential } from 'firebase/auth';
-import { User, AuthContextType, GoogleUser } from '../types/auth';
+import { signOut, getRedirectResult, signInWithPopup, signInWithRedirect } from 'firebase/auth';
+import { User, AuthContextType } from '../types/auth';
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -10,32 +10,84 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Helper function to handle Google sign-in
+  const signInWithGoogle = async () => {
+    try {
+      // First try popup (it's better UX when it works)
+      return await signInWithPopup(auth, googleProvider);
+    } catch (error) {
+      console.error("Error with popup auth, falling back to redirect:", error);
+      // Fallback to redirect if popup fails
+      signInWithRedirect(auth, googleProvider);
+      return null;
+    }
+  };
+
   useEffect(() => {
     // Check if user is already logged in
-    const storedUser = localStorage.getItem('userInfo');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
+    const checkAuth = async () => {
+      try {
+        const storedUser = localStorage.getItem('userInfo');
+        const token = localStorage.getItem('token');
+        
+        if (storedUser && token) {
+          const userData = JSON.parse(storedUser);
+          setUser(userData);
+        }
+        
+        // Check for redirect result from Google authentication
+        const result = await getRedirectResult(auth);
+        if (result && result.user) {
+          console.log('Got redirect result:', result.user);
+          // Process the Google sign-in result
+          const googleUser = result.user;
+          try {
+            const userData = await ApiService.googleLogin({
+              googleId: googleUser.uid,
+              email: googleUser.email || '',
+              name: googleUser.displayName || '',
+              avatar: googleUser.photoURL || undefined,
+            });
+            
+            setUser(userData);
+          } catch (err: any) {
+            const message = err.message || 'Google login failed';
+            setError(message);
+            await signOut(auth); // Sign out from Firebase if backend authentication fails
+            console.error('Google redirect auth error:', message);
+          }
+        }
+      } catch (err) {
+        console.error('Error checking auth:', err);
+        // Clear invalid data
+        localStorage.removeItem('userInfo');
+        localStorage.removeItem('token');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
   }, []);
 
   const login = async (email: string, password: string): Promise<User> => {
     try {
       setLoading(true);
       setError(null);
-      const userData = await loginApi(email, password);
+      const userData = await ApiService.login(email, password);
       setUser(userData);
-      setLoading(false);
       return userData;
     } catch (err: any) {
+      const message = err.message || 'Login failed';
+      setError(message);
+      throw new Error(message);
+    } finally {
       setLoading(false);
-      setError(err.toString());
-      throw err;
     }
   };
 
@@ -43,14 +95,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setLoading(true);
       setError(null);
-      const userData = await registerApi(name, email, password);
+      const userData = await ApiService.register(name, email, password);
       setUser(userData);
-      setLoading(false);
       return userData;
     } catch (err: any) {
+      const message = err.message || 'Registration failed';
+      setError(message);
+      throw new Error(message);
+    } finally {
       setLoading(false);
-      setError(err.toString());
-      throw err;
     }
   };
 
@@ -59,39 +112,59 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setLoading(true);
       setError(null);
       
-      // Sign in with Google popup using Firebase
-      const result: UserCredential = await signInWithPopup(auth, googleProvider);
+      console.log('Starting Google authentication');
       
-      // Get Google user data
-      const googleUser = result.user;
-      const userData = await googleLoginApi({
-        googleId: googleUser.uid,
-        email: googleUser.email || '',
-        name: googleUser.displayName || '',
-        avatar: googleUser.photoURL || undefined,
-      });
+      // Use combined method that tries popup first, then falls back to redirect
+      const result = await signInWithGoogle();
       
-      setUser(userData);
-      setLoading(false);
-      return userData;
+      if (result && result.user) {
+        console.log('Got Google user:', result.user);
+        // Get Google user data
+        const googleUser = result.user;
+        const userData = await ApiService.googleLogin({
+          googleId: googleUser.uid,
+          email: googleUser.email || '',
+          name: googleUser.displayName || '',
+          avatar: googleUser.photoURL || undefined,
+        });
+        
+        setUser(userData);
+        return userData;
+      }
+      
+      // If we got null, it means we're in redirect flow
+      // The redirect will be handled in the useEffect
+      return {} as User; // Temporary user object for TypeScript
+      
     } catch (err: any) {
+      // Only set error if it's not a redirect (which shows as an error but isn't)
+      if (err.code !== 'auth/redirect-cancelled-by-user') {
+        const message = err.message || 'Google login failed';
+        setError(message);
+        console.error('Google auth error:', err);
+        throw new Error(message);
+      }
+      return {} as User; // Return empty for redirect flow
+    } finally {
       setLoading(false);
-      setError(err.toString());
-      await signOut(auth); // Sign out from Firebase if backend authentication fails
-      throw err;
     }
   };
 
   const logout = async (): Promise<void> => {
     try {
-      logoutApi();
+      setLoading(true);
+      await ApiService.logout();
       await signOut(auth); // Sign out from Firebase
       setUser(null);
+      setError(null);
     } catch (err) {
       console.error('Logout error:', err);
       // Still clear local user data even if Firebase logout fails
-      logoutApi();
+      ApiService.logout();
       setUser(null);
+      setError(null);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -114,10 +187,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   );
 };
 
-export const useAuth = (): AuthContextType => {
+export const useAuthContext = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error('useAuthContext must be used within an AuthContextProvider');
   }
   return context;
 };

@@ -48,4 +48,30 @@ declare module '../services/api.js' {
   
   const api: any;
   export default api;
-} 
+}
+
+// Type definitions for API services
+
+import { User } from '../types/auth';
+
+// Auth
+export function login(email: string, password: string): Promise<User>;
+export function register(name: string, email: string, password: string): Promise<User>;
+export function googleLogin(googleData: {
+  googleId: string;
+  email: string;
+  name: string;
+  avatar?: string;
+}): Promise<User>;
+export function logout(): void;
+
+// User
+export function getUserProfile(): Promise<any>;
+export function updateUserProfile(user: any): Promise<any>;
+
+// Cart
+export function getUserCart(): Promise<any[]>;
+export function updateUserCart(cartItems: any[]): Promise<any[]>;
+
+// Orders
+export function submitOrder(orderData: any): Promise<any>; 
