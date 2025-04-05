@@ -1,72 +1,65 @@
-# Beam - MERN Stack Application
+# Beam E-commerce Platform
 
-This is a MERN (MongoDB, Express.js, React, Node.js) stack application.
+A modern e-commerce platform with a React frontend and Express/MongoDB backend.
 
 ## Project Structure
 
+- `frontend/`: React application with Tailwind CSS styling
+- `backend/`: Express.js API server with MongoDB integration
+
+## Setup and Running
+
+### Backend
+
+```bash
+# Navigate to backend directory
+cd backend
+
+# Install dependencies
+npm install
+
+# Start the development server
+npm run server
+
+# Or start with node directly
+node server.js
 ```
-beam/
-├── frontend/     # React frontend (Vite)
-└── backend/      # Node.js/Express backend
+
+### Frontend
+
+```bash
+# Navigate to frontend directory
+cd frontend
+
+# Install dependencies
+npm install
+
+# Start the development server
+npm run dev
 ```
 
-## Setup Instructions
+## Environment Variables
 
-### Backend Setup
+### Backend (.env)
+```
+NODE_ENV=development
+PORT=5001
+MONGODB_URI=mongodb://localhost:27017/beam_ecommerce
+JWT_SECRET=your_jwt_secret
+```
 
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
+### Access the Application
 
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:5001/api
 
-3. Create a .env file with the following variables:
-   ```
-   PORT=5000
-   MONGODB_URI=mongodb://localhost:27017/beam
-   ```
+## Features
 
-4. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
-### Frontend Setup
-
-1. Navigate to the frontend directory:
-   ```bash
-   cd frontend
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
-## Running the Application
-
-1. Start the backend server (from the backend directory):
-   ```bash
-   npm run dev
-   ```
-
-2. In a new terminal, start the frontend development server (from the frontend directory):
-   ```bash
-   npm run dev
-   ```
-
-3. Access the application:
-   - Frontend: http://localhost:5173
-   - Backend API: http://localhost:5000
+- User authentication (register, login, profile management)
+- Product browsing and search
+- Shopping cart functionality
+- Order processing and history
+- Admin dashboard for product and order management
 
 ## Technologies Used
 

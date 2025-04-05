@@ -1,28 +1,60 @@
 const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
 const dotenv = require('dotenv');
+const cors = require('cors');
+const connectDB = require('./src/config/db');
+const { notFound, errorHandler } = require('./src/middleware/errorMiddleware');
+const userRoutes = require('./src/routes/userRoutes');
+const productRoutes = require('./src/routes/productRoutes');
+const orderRoutes = require('./src/routes/orderRoutes');
+const path = require('path');
 
+// Load environment variables
 dotenv.config();
+console.log('Environment loaded, PORT=', process.env.PORT);
+
+// Connect to MongoDB
+connectDB();
 
 const app = express();
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json()); // Parse JSON request bodies
 
-// MongoDB connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/beam')
-  .then(() => console.log('Connected to MongoDB'))
-  .catch((err) => console.error('MongoDB connection error:', err));
+// Routes
+app.use('/api/users', userRoutes);
+app.use('/api/products', productRoutes);
+app.use('/api/orders', orderRoutes);
 
-// Basic route
+// Create a simple health check endpoint
+app.get('/api/config/paypal', (req, res) => 
+  res.send(process.env.PAYPAL_CLIENT_ID || 'sb')
+);
+
+// Root route for API check
 app.get('/', (req, res) => {
-  res.json({ message: 'Welcome to Beam API' });
+  res.send('API is running on port ' + process.env.PORT);
 });
 
-// Start server
-const PORT = process.env.PORT || 5000;
+// Serve static assets if in production
+if (process.env.NODE_ENV === 'production') {
+  // Set static folder
+  app.use(express.static(path.join(__dirname, '../frontend/dist')));
+
+  // Any route that is not API will be redirected to index.html
+  app.get('*', (req, res) =>
+    res.sendFile(path.resolve(__dirname, '../frontend', 'dist', 'index.html'))
+  );
+} else {
+  console.log('Running in development mode');
+}
+
+// Error handling middleware
+app.use(notFound);
+app.use(errorHandler);
+
+const PORT = process.env.PORT || 5001;
+
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
 }); 
