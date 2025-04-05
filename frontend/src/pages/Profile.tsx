@@ -1,21 +1,12 @@
 import React, { useState, useEffect, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { updateUserProfile } from '../services/api';
+import { updateUserProfile, getUserProfile, listMyOrders } from '../services/api';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
-// Mock user data
-const mockUser = {
-  id: 'usr_12345',
-  name: 'Alex Johnson',
-  email: 'alex.johnson@example.com',
-  phone: '+1 (555) 123-4567',
-  avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=2670&auto=format&fit=crop',
-  memberSince: '2022-03-15',
-};
-
-// Mock addresses
+// Mock addresses and payment methods - we'll keep these for now
+// but replace the mock user data with real user data
 const mockAddresses = [
   {
     id: 'addr_1',
@@ -74,10 +65,28 @@ interface UserData {
   name: string;
   email: string;
   password?: string;
+  avatar?: string;
+  createdAt?: string;
+  googleId?: string;
+}
+
+interface Order {
+  _id: string;
+  createdAt: string;
+  totalPrice: number;
+  isPaid: boolean;
+  isDelivered: boolean;
+  orderItems: Array<{
+    name: string;
+    qty: number;
+    image: string;
+    price: number;
+    product: string;
+  }>;
 }
 
 const Profile: React.FC = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { user: authUser, loading: authLoading } = useAuth();
   
   const [activeTab, setActiveTab] = useState<TabType>('account');
   const [isEditing, setIsEditing] = useState(false);
@@ -89,13 +98,50 @@ const Profile: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [success, setSuccess] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState<boolean>(false);
+  const [ordersError, setOrdersError] = useState<string>('');
   
+  // Fetch user profile data from the API
   useEffect(() => {
-    if (user) {
-      setName(user.name || '');
-      setEmail(user.email || '');
+    const fetchUserProfile = async () => {
+      try {
+        setLoading(true);
+        const data = await getUserProfile();
+        setUserData(data);
+        setName(data.name || '');
+        setEmail(data.email || '');
+        setLoading(false);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+        setLoading(false);
+      }
+    };
+    
+    if (authUser) {
+      fetchUserProfile();
     }
-  }, [user]);
+  }, [authUser]);
+  
+  // Fetch user orders when the orders tab is active
+  useEffect(() => {
+    const fetchOrders = async () => {
+      if (activeTab === 'orders') {
+        try {
+          setOrdersLoading(true);
+          const data = await listMyOrders();
+          setOrders(data);
+          setOrdersLoading(false);
+        } catch (err) {
+          setOrdersError(err instanceof Error ? err.message : String(err));
+          setOrdersLoading(false);
+        }
+      }
+    };
+    
+    fetchOrders();
+  }, [activeTab]);
   
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
@@ -132,17 +178,19 @@ const Profile: React.FC = () => {
     
     try {
       setLoading(true);
-      const userData: UserData = {
+      const updatedUserData: UserData = {
         name,
         email,
         ...(password && { password }),
       };
       
-      await updateUserProfile(userData);
+      const result = await updateUserProfile(updatedUserData);
+      setUserData(result);
       setSuccess(true);
       setPassword('');
       setConfirmPassword('');
       setLoading(false);
+      setIsEditing(false);
     } catch (err: any) {
       setError(err.toString());
       setLoading(false);
@@ -180,6 +228,15 @@ const Profile: React.FC = () => {
     }
   };
 
+  // Format date string
+  const formatDate = (dateString: string): string => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
   return (
     <div>
       <Navbar />
@@ -191,14 +248,22 @@ const Profile: React.FC = () => {
             <div className="w-full lg:w-64">
               <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
                 <div className="flex items-center space-x-4">
-                  <img 
-                    src={mockUser.avatarUrl} 
-                    alt={mockUser.name} 
-                    className="h-16 w-16 rounded-full object-cover"
-                  />
+                  {userData?.avatar ? (
+                    <img 
+                      src={userData.avatar} 
+                      alt={userData.name} 
+                      className="h-16 w-16 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-16 w-16 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-xl font-semibold">
+                      {userData?.name?.charAt(0).toUpperCase()}
+                    </div>
+                  )}
                   <div>
-                    <h2 className="text-lg font-medium text-gray-900">{mockUser.name}</h2>
-                    <p className="text-sm text-gray-500">Member since {new Date(mockUser.memberSince).toLocaleDateString()}</p>
+                    <h2 className="text-lg font-medium text-gray-900">{userData?.name}</h2>
+                    <p className="text-sm text-gray-500">
+                      Member since {userData?.createdAt ? formatDate(userData.createdAt) : 'N/A'}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -247,28 +312,17 @@ const Profile: React.FC = () => {
                 >
                   Order History
                 </button>
-                
-                <button
-                  onClick={() => handleTabChange('wishlist')}
-                  className={`w-full text-left px-6 py-3 ${
-                    activeTab === 'wishlist' 
-                      ? 'bg-indigo-50 border-l-4 border-indigo-600 text-indigo-700 font-medium' 
-                      : 'text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  Wishlist
-                </button>
               </nav>
             </div>
             
-            {/* Content */}
+            {/* Main Content */}
             <div className="flex-1">
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                {/* Account Details */}
-                {activeTab === 'account' && (
-                  <div>
-                    <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-xl font-medium text-gray-900">Account Details</h2>
+              {/* Account Tab */}
+              {activeTab === 'account' && (
+                <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                  <div className="p-6 border-b border-gray-200">
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-lg font-medium text-gray-900">Account Details</h2>
                       <button
                         onClick={handleEditToggle}
                         className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
@@ -276,20 +330,35 @@ const Profile: React.FC = () => {
                         {isEditing ? 'Cancel' : 'Edit'}
                       </button>
                     </div>
+                  </div>
+                  
+                  <div className="p-6">
+                    {success && (
+                      <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
+                        Profile updated successfully!
+                      </div>
+                    )}
+                    
+                    {error && (
+                      <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                        {error}
+                      </div>
+                    )}
                     
                     {isEditing ? (
                       <form onSubmit={handleSubmit} className="space-y-6">
                         <div>
                           <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                            Name
+                            Full Name
                           </label>
                           <input
                             type="text"
                             id="name"
+                            name="name"
+                            required
                             value={name}
                             onChange={handleInputChange}
                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                            required
                           />
                         </div>
                         
@@ -300,51 +369,52 @@ const Profile: React.FC = () => {
                           <input
                             type="email"
                             id="email"
+                            name="email"
+                            required
                             value={email}
                             onChange={handleInputChange}
                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                            required
                           />
                         </div>
                         
                         <div>
                           <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                            Password
+                            New Password
                           </label>
                           <input
                             type="password"
                             id="password"
+                            name="password"
                             value={password}
                             onChange={handleInputChange}
                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                            placeholder="Leave blank to keep current password"
                           />
-                          <p className="mt-1 text-sm text-gray-500">
+                          <p className="mt-1 text-xs text-gray-500">
                             Leave blank to keep current password
                           </p>
                         </div>
                         
                         <div>
                           <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                            Confirm Password
+                            Confirm New Password
                           </label>
                           <input
                             type="password"
                             id="confirmPassword"
+                            name="confirmPassword"
                             value={confirmPassword}
                             onChange={handleInputChange}
                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                            placeholder="Leave blank to keep current password"
                           />
                         </div>
                         
-                        <div>
+                        <div className="flex items-center justify-end">
                           <button
                             type="submit"
                             disabled={loading}
-                            className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                           >
-                            {loading ? 'Updating...' : 'Update Profile'}
+                            {loading ? 'Saving...' : 'Save Changes'}
                           </button>
                         </div>
                       </form>
@@ -352,82 +422,143 @@ const Profile: React.FC = () => {
                       <div className="space-y-6">
                         <div>
                           <h3 className="text-sm font-medium text-gray-500">Full Name</h3>
-                          <p className="mt-1 text-sm text-gray-900">{mockUser.name}</p>
+                          <p className="mt-1 text-sm text-gray-900">{userData?.name}</p>
                         </div>
                         
                         <div>
                           <h3 className="text-sm font-medium text-gray-500">Email Address</h3>
-                          <p className="mt-1 text-sm text-gray-900">{mockUser.email}</p>
+                          <p className="mt-1 text-sm text-gray-900">{userData?.email}</p>
                         </div>
                         
-                        <div>
-                          <h3 className="text-sm font-medium text-gray-500">Phone Number</h3>
-                          <p className="mt-1 text-sm text-gray-900">{mockUser.phone}</p>
-                        </div>
-                        
-                        <div className="border-t border-gray-200 pt-6">
-                          <h3 className="text-lg font-medium text-gray-900 mb-3">Password</h3>
-                          <button
-                            type="button"
-                            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                          >
-                            Change Password
-                          </button>
-                        </div>
-                        
-                        <div className="border-t border-gray-200 pt-6">
-                          <h3 className="text-lg font-medium text-gray-900 mb-3">Account Settings</h3>
-                          <div className="space-y-4">
-                            <div className="flex items-start">
-                              <div className="flex items-center h-5">
-                                <input
-                                  id="marketing"
-                                  name="marketing"
-                                  type="checkbox"
-                                  defaultChecked={true}
-                                  className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
-                                />
-                              </div>
-                              <div className="ml-3 text-sm">
-                                <label htmlFor="marketing" className="font-medium text-gray-700">Marketing emails</label>
-                                <p className="text-gray-500">Receive emails about new products, features, and more.</p>
-                              </div>
-                            </div>
-                            
-                            <div className="flex items-start">
-                              <div className="flex items-center h-5">
-                                <input
-                                  id="orders"
-                                  name="orders"
-                                  type="checkbox"
-                                  defaultChecked={true}
-                                  className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
-                                />
-                              </div>
-                              <div className="ml-3 text-sm">
-                                <label htmlFor="orders" className="font-medium text-gray-700">Order updates</label>
-                                <p className="text-gray-500">Receive emails about your orders and shipping updates.</p>
-                              </div>
-                            </div>
+                        {userData?.googleId && (
+                          <div>
+                            <h3 className="text-sm font-medium text-gray-500">Google Account</h3>
+                            <p className="mt-1 text-sm text-gray-900">Connected to Google Account</p>
                           </div>
-                        </div>
+                        )}
                       </div>
                     )}
                   </div>
-                )}
-                
-                {/* Addresses */}
-                {activeTab === 'addresses' && (
-                  <div>
-                    <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-xl font-medium text-gray-900">Your Addresses</h2>
-                      <button
-                        className="inline-flex items-center px-3 py-1.5 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
-                      >
-                        Add New Address
-                      </button>
-                    </div>
-                    
+                </div>
+              )}
+              
+              {/* Orders Tab */}
+              {activeTab === 'orders' && (
+                <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                  <div className="p-6 border-b border-gray-200">
+                    <h2 className="text-lg font-medium text-gray-900">Order History</h2>
+                  </div>
+                  
+                  <div className="p-6">
+                    {ordersLoading ? (
+                      <div className="flex justify-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+                      </div>
+                    ) : ordersError ? (
+                      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                        {ordersError}
+                      </div>
+                    ) : orders.length === 0 ? (
+                      <div className="text-center py-8">
+                        <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        </svg>
+                        <h3 className="mt-2 text-sm font-medium text-gray-900">No orders yet</h3>
+                        <p className="mt-1 text-sm text-gray-500">You haven't placed any orders yet.</p>
+                        <div className="mt-6">
+                          <Link
+                            to="/products"
+                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
+                          >
+                            Start Shopping
+                          </Link>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Order ID
+                              </th>
+                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Date
+                              </th>
+                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Total
+                              </th>
+                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Paid
+                              </th>
+                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Delivered
+                              </th>
+                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Actions
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {orders.map((order) => (
+                              <tr key={order._id}>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                  {order._id}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                  {formatDate(order.createdAt)}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                  ${order.totalPrice.toFixed(2)}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                  {order.isPaid ? (
+                                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                      Paid
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                      Not Paid
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                  {order.isDelivered ? (
+                                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                      Delivered
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                      Not Delivered
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                  <Link
+                                    to={`/order/${order._id}`}
+                                    className="text-indigo-600 hover:text-indigo-900"
+                                  >
+                                    Details
+                                  </Link>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Addresses Tab - using mock data for now */}
+              {activeTab === 'addresses' && (
+                <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                  <div className="p-6 border-b border-gray-200">
+                    <h2 className="text-lg font-medium text-gray-900">Addresses</h2>
+                  </div>
+                  
+                  <div className="p-6">
                     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                       {mockAddresses.map((address) => (
                         <div key={address.id} className="border border-gray-200 rounded-lg p-4 relative">
@@ -473,20 +604,17 @@ const Profile: React.FC = () => {
                       ))}
                     </div>
                   </div>
-                )}
-                
-                {/* Payment Methods */}
-                {activeTab === 'payment' && (
-                  <div>
-                    <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-xl font-medium text-gray-900">Payment Methods</h2>
-                      <button
-                        className="inline-flex items-center px-3 py-1.5 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
-                      >
-                        Add Payment Method
-                      </button>
-                    </div>
-                    
+                </div>
+              )}
+              
+              {/* Payment Methods Tab - using mock data for now */}
+              {activeTab === 'payment' && (
+                <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                  <div className="p-6 border-b border-gray-200">
+                    <h2 className="text-lg font-medium text-gray-900">Payment Methods</h2>
+                  </div>
+                  
+                  <div className="p-6">
                     <div className="space-y-4">
                       {mockPaymentMethods.map((payment) => (
                         <div key={payment.id} className="border border-gray-200 rounded-lg p-4 relative">
@@ -526,52 +654,8 @@ const Profile: React.FC = () => {
                       ))}
                     </div>
                   </div>
-                )}
-                
-                {/* Order History */}
-                {activeTab === 'orders' && (
-                  <div>
-                    <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-xl font-medium text-gray-900">Order History</h2>
-                    </div>
-                    
-                    <div className="text-center py-6">
-                      <p className="text-gray-500 mb-4">View all your orders and track their status</p>
-                      <Link
-                        to="/orders"
-                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
-                      >
-                        Go to Orders
-                      </Link>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Wishlist */}
-                {activeTab === 'wishlist' && (
-                  <div>
-                    <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-xl font-medium text-gray-900">Wishlist</h2>
-                    </div>
-                    
-                    <div className="text-center py-12">
-                      <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                      </svg>
-                      <h3 className="mt-2 text-sm font-medium text-gray-900">No items in your wishlist</h3>
-                      <p className="mt-1 text-sm text-gray-500">Start adding items to your wishlist while shopping.</p>
-                      <div className="mt-6">
-                        <Link
-                          to="/products"
-                          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
-                        >
-                          Browse Products
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
