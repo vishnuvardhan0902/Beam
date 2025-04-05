@@ -67,10 +67,10 @@ export const login = async (email, password) => {
 export const googleLogin = async (googleData) => {
   try {
     const { data } = await api.post('/users/google', {
-      googleId: googleData.googleId || googleData.uid,
+      googleId: googleData.googleId,
       email: googleData.email,
-      name: googleData.displayName || googleData.name,
-      avatar: googleData.photoURL || googleData.avatar,
+      name: googleData.name,
+      avatar: googleData.avatar,
     });
     localStorage.setItem('userInfo', JSON.stringify(data));
     localStorage.setItem('token', data.token);
@@ -113,6 +113,98 @@ export const updateUserProfile = async (user) => {
   try {
     const { data } = await api.put('/users/profile', user);
     localStorage.setItem('userInfo', JSON.stringify(data));
+    return data;
+  } catch (error) {
+    throw error.response?.data?.message || error.message;
+  }
+};
+
+// Addresses
+export const getUserAddresses = async () => {
+  try {
+    const { data } = await api.get('/users/addresses');
+    return data;
+  } catch (error) {
+    throw error.response?.data?.message || error.message;
+  }
+};
+
+export const addUserAddress = async (address) => {
+  try {
+    const { data } = await api.post('/users/addresses', address);
+    return data;
+  } catch (error) {
+    throw error.response?.data?.message || error.message;
+  }
+};
+
+export const updateUserAddress = async (addressId, address) => {
+  try {
+    const { data } = await api.put(`/users/addresses/${addressId}`, address);
+    return data;
+  } catch (error) {
+    throw error.response?.data?.message || error.message;
+  }
+};
+
+export const deleteUserAddress = async (addressId) => {
+  try {
+    const { data } = await api.delete(`/users/addresses/${addressId}`);
+    return data;
+  } catch (error) {
+    throw error.response?.data?.message || error.message;
+  }
+};
+
+export const setDefaultAddress = async (addressId) => {
+  try {
+    const { data } = await api.put(`/users/addresses/${addressId}/default`);
+    return data;
+  } catch (error) {
+    throw error.response?.data?.message || error.message;
+  }
+};
+
+// Payment Methods
+export const getUserPaymentMethods = async () => {
+  try {
+    const { data } = await api.get('/users/payment-methods');
+    return data;
+  } catch (error) {
+    throw error.response?.data?.message || error.message;
+  }
+};
+
+export const addUserPaymentMethod = async (paymentMethod) => {
+  try {
+    const { data } = await api.post('/users/payment-methods', paymentMethod);
+    return data;
+  } catch (error) {
+    throw error.response?.data?.message || error.message;
+  }
+};
+
+export const updateUserPaymentMethod = async (paymentMethodId, paymentMethod) => {
+  try {
+    const { data } = await api.put(`/users/payment-methods/${paymentMethodId}`, paymentMethod);
+    return data;
+  } catch (error) {
+    throw error.response?.data?.message || error.message;
+  }
+};
+
+export const deleteUserPaymentMethod = async (paymentMethodId) => {
+  try {
+    const { data } = await api.delete(`/users/payment-methods/${paymentMethodId}`);
+    return data;
+  } catch (error) {
+    throw error.response?.data?.message || error.message;
+  }
+};
+
+export const setDefaultPaymentMethod = async (paymentMethodId) => {
+  try {
+    const { data } = await api.put(`/users/payment-methods/${paymentMethodId}/default`);
     return data;
   } catch (error) {
     throw error.response?.data?.message || error.message;

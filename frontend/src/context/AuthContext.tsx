@@ -65,10 +65,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Get Google user data
       const googleUser = result.user;
       const userData = await googleLoginApi({
-        uid: googleUser.uid,
+        googleId: googleUser.uid,
         email: googleUser.email || '',
-        displayName: googleUser.displayName || '',
-        photoURL: googleUser.photoURL || undefined,
+        name: googleUser.displayName || '',
+        avatar: googleUser.photoURL || undefined,
       });
       
       setUser(userData);

@@ -1,62 +1,23 @@
 import React, { useState, useEffect, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { updateUserProfile, getUserProfile, listMyOrders } from '../services/api';
+import { 
+  updateUserProfile, 
+  getUserProfile, 
+  listMyOrders,
+  getUserAddresses,
+  addUserAddress,
+  updateUserAddress,
+  deleteUserAddress,
+  setDefaultAddress,
+  getUserPaymentMethods,
+  addUserPaymentMethod,
+  updateUserPaymentMethod,
+  deleteUserPaymentMethod,
+  setDefaultPaymentMethod
+} from '../services/api';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-
-// Mock addresses and payment methods - we'll keep these for now
-// but replace the mock user data with real user data
-const mockAddresses = [
-  {
-    id: 'addr_1',
-    type: 'Home',
-    default: true,
-    name: 'Alex Johnson',
-    street: '123 Main Street',
-    apt: 'Apt 4B',
-    city: 'San Francisco',
-    state: 'CA',
-    zip: '94103',
-    country: 'United States',
-    phone: '+1 (555) 123-4567',
-  },
-  {
-    id: 'addr_2',
-    type: 'Work',
-    default: false,
-    name: 'Alex Johnson',
-    street: '456 Market Street',
-    apt: 'Suite 10',
-    city: 'San Francisco',
-    state: 'CA',
-    zip: '94105',
-    country: 'United States',
-    phone: '+1 (555) 987-6543',
-  },
-];
-
-// Mock payment methods
-const mockPaymentMethods = [
-  {
-    id: 'pm_1',
-    type: 'credit_card',
-    default: true,
-    brand: 'Visa',
-    last4: '4242',
-    expMonth: 12,
-    expYear: 2025,
-  },
-  {
-    id: 'pm_2',
-    type: 'credit_card',
-    default: false,
-    brand: 'Mastercard',
-    last4: '5678',
-    expMonth: 8,
-    expYear: 2024,
-  },
-];
 
 // Profile tabs
 type TabType = 'account' | 'addresses' | 'payment' | 'orders' | 'wishlist';
@@ -68,6 +29,32 @@ interface UserData {
   avatar?: string;
   createdAt?: string;
   googleId?: string;
+  addresses?: Address[];
+  paymentMethods?: PaymentMethod[];
+}
+
+interface Address {
+  _id: string;
+  type: string;
+  default: boolean;
+  name: string;
+  street: string;
+  apt?: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  phone: string;
+}
+
+interface PaymentMethod {
+  _id: string;
+  type: string;
+  default: boolean;
+  brand: string;
+  last4: string;
+  expMonth: number;
+  expYear: number;
 }
 
 interface Order {
@@ -102,6 +89,8 @@ const Profile: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState<boolean>(false);
   const [ordersError, setOrdersError] = useState<string>('');
+  const [addressesLoading, setAddressesLoading] = useState<boolean>(false);
+  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState<boolean>(false);
   
   // Fetch user profile data from the API
   useEffect(() => {
@@ -141,6 +130,44 @@ const Profile: React.FC = () => {
     };
     
     fetchOrders();
+  }, [activeTab]);
+  
+  // Fetch addresses when the addresses tab is active
+  useEffect(() => {
+    const fetchAddresses = async () => {
+      if (activeTab === 'addresses') {
+        try {
+          setAddressesLoading(true);
+          const data = await getUserAddresses();
+          setUserData(prev => prev ? { ...prev, addresses: data } : null);
+          setAddressesLoading(false);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : String(err));
+          setAddressesLoading(false);
+        }
+      }
+    };
+    
+    fetchAddresses();
+  }, [activeTab]);
+
+  // Fetch payment methods when the payment tab is active
+  useEffect(() => {
+    const fetchPaymentMethods = async () => {
+      if (activeTab === 'payment') {
+        try {
+          setPaymentMethodsLoading(true);
+          const data = await getUserPaymentMethods();
+          setUserData(prev => prev ? { ...prev, paymentMethods: data } : null);
+          setPaymentMethodsLoading(false);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : String(err));
+          setPaymentMethodsLoading(false);
+        }
+      }
+    };
+    
+    fetchPaymentMethods();
   }, [activeTab]);
   
   const handleTabChange = (tab: TabType) => {
@@ -235,6 +262,136 @@ const Profile: React.FC = () => {
       month: 'long',
       day: 'numeric'
     });
+  };
+
+  // Handle address operations
+  const handleAddAddress = async (address) => {
+    try {
+      setAddressesLoading(true);
+      const newAddress = await addUserAddress(address);
+      setUserData(prev => prev ? { 
+        ...prev, 
+        addresses: [...(prev.addresses || []), newAddress] 
+      } : null);
+      setAddressesLoading(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setAddressesLoading(false);
+    }
+  };
+
+  const handleUpdateAddress = async (addressId, address) => {
+    try {
+      setAddressesLoading(true);
+      const updatedAddress = await updateUserAddress(addressId, address);
+      setUserData(prev => prev ? {
+        ...prev,
+        addresses: prev.addresses?.map(addr => 
+          addr._id === addressId ? updatedAddress : addr
+        )
+      } : null);
+      setAddressesLoading(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setAddressesLoading(false);
+    }
+  };
+
+  const handleDeleteAddress = async (addressId) => {
+    try {
+      setAddressesLoading(true);
+      await deleteUserAddress(addressId);
+      setUserData(prev => prev ? {
+        ...prev,
+        addresses: prev.addresses?.filter(addr => addr._id !== addressId)
+      } : null);
+      setAddressesLoading(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setAddressesLoading(false);
+    }
+  };
+
+  const handleSetDefaultAddress = async (addressId) => {
+    try {
+      setAddressesLoading(true);
+      const updatedAddress = await setDefaultAddress(addressId);
+      setUserData(prev => prev ? {
+        ...prev,
+        addresses: prev.addresses?.map(addr => 
+          addr._id === addressId ? updatedAddress : { ...addr, default: false }
+        )
+      } : null);
+      setAddressesLoading(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setAddressesLoading(false);
+    }
+  };
+
+  // Handle payment method operations
+  const handleAddPaymentMethod = async (paymentMethod) => {
+    try {
+      setPaymentMethodsLoading(true);
+      const newPaymentMethod = await addUserPaymentMethod(paymentMethod);
+      setUserData(prev => prev ? {
+        ...prev,
+        paymentMethods: [...(prev.paymentMethods || []), newPaymentMethod]
+      } : null);
+      setPaymentMethodsLoading(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setPaymentMethodsLoading(false);
+    }
+  };
+
+  const handleUpdatePaymentMethod = async (paymentMethodId, paymentMethod) => {
+    try {
+      setPaymentMethodsLoading(true);
+      const updatedPaymentMethod = await updateUserPaymentMethod(paymentMethodId, paymentMethod);
+      setUserData(prev => prev ? {
+        ...prev,
+        paymentMethods: prev.paymentMethods?.map(pm => 
+          pm._id === paymentMethodId ? updatedPaymentMethod : pm
+        )
+      } : null);
+      setPaymentMethodsLoading(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setPaymentMethodsLoading(false);
+    }
+  };
+
+  const handleDeletePaymentMethod = async (paymentMethodId) => {
+    try {
+      setPaymentMethodsLoading(true);
+      await deleteUserPaymentMethod(paymentMethodId);
+      setUserData(prev => prev ? {
+        ...prev,
+        paymentMethods: prev.paymentMethods?.filter(pm => pm._id !== paymentMethodId)
+      } : null);
+      setPaymentMethodsLoading(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setPaymentMethodsLoading(false);
+    }
+  };
+
+  const handleSetDefaultPaymentMethod = async (paymentMethodId) => {
+    try {
+      setPaymentMethodsLoading(true);
+      const updatedPaymentMethod = await setDefaultPaymentMethod(paymentMethodId);
+      setUserData(prev => prev ? {
+        ...prev,
+        paymentMethods: prev.paymentMethods?.map(pm => 
+          pm._id === paymentMethodId ? updatedPaymentMethod : { ...pm, default: false }
+        )
+      } : null);
+      setPaymentMethodsLoading(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setPaymentMethodsLoading(false);
+    }
   };
 
   return (
@@ -551,108 +708,153 @@ const Profile: React.FC = () => {
                 </div>
               )}
               
-              {/* Addresses Tab - using mock data for now */}
+              {/* Addresses Tab */}
               {activeTab === 'addresses' && (
                 <div className="bg-white rounded-lg shadow-sm overflow-hidden">
                   <div className="p-6 border-b border-gray-200">
-                    <h2 className="text-lg font-medium text-gray-900">Addresses</h2>
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-lg font-medium text-gray-900">Addresses</h2>
+                      <button
+                        type="button"
+                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+                      >
+                        Add New Address
+                      </button>
+                    </div>
                   </div>
                   
                   <div className="p-6">
-                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                      {mockAddresses.map((address) => (
-                        <div key={address.id} className="border border-gray-200 rounded-lg p-4 relative">
-                          {address.default && (
-                            <span className="absolute top-4 right-4 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              Default
-                            </span>
-                          )}
-                          <div className="mb-2">
-                            <h3 className="text-sm font-medium text-gray-900">{address.type}</h3>
-                          </div>
-                          <div className="text-sm text-gray-500 space-y-1">
-                            <p>{address.name}</p>
-                            <p>{address.street}</p>
-                            {address.apt && <p>{address.apt}</p>}
-                            <p>{address.city}, {address.state} {address.zip}</p>
-                            <p>{address.country}</p>
-                            <p>{address.phone}</p>
-                          </div>
-                          <div className="mt-4 flex space-x-3">
-                            <button
-                              type="button"
-                              className="text-sm text-indigo-600 hover:text-indigo-500"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              className="text-sm text-gray-500 hover:text-gray-700"
-                            >
-                              Remove
-                            </button>
-                            {!address.default && (
+                    {addressesLoading ? (
+                      <div className="flex justify-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+                      </div>
+                    ) : userData?.addresses?.length === 0 ? (
+                      <div className="text-center py-8">
+                        <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <h3 className="mt-2 text-sm font-medium text-gray-900">No addresses saved</h3>
+                        <p className="mt-1 text-sm text-gray-500">Add an address to make checkout easier.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                        {userData?.addresses?.map((address) => (
+                          <div key={address._id} className="border border-gray-200 rounded-lg p-4 relative">
+                            {address.default && (
+                              <span className="absolute top-4 right-4 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                Default
+                              </span>
+                            )}
+                            <div className="mb-2">
+                              <h3 className="text-sm font-medium text-gray-900">{address.type}</h3>
+                            </div>
+                            <div className="text-sm text-gray-500 space-y-1">
+                              <p>{address.name}</p>
+                              <p>{address.street}</p>
+                              {address.apt && <p>{address.apt}</p>}
+                              <p>{address.city}, {address.state} {address.zip}</p>
+                              <p>{address.country}</p>
+                              <p>{address.phone}</p>
+                            </div>
+                            <div className="mt-4 flex space-x-3">
+                              <button
+                                type="button"
+                                className="text-sm text-indigo-600 hover:text-indigo-500"
+                              >
+                                Edit
+                              </button>
                               <button
                                 type="button"
                                 className="text-sm text-gray-500 hover:text-gray-700"
                               >
-                                Set as Default
+                                Remove
                               </button>
-                            )}
+                              {!address.default && (
+                                <button
+                                  type="button"
+                                  className="text-sm text-gray-500 hover:text-gray-700"
+                                >
+                                  Set as Default
+                                </button>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
               
-              {/* Payment Methods Tab - using mock data for now */}
+              {/* Payment Methods Tab */}
               {activeTab === 'payment' && (
                 <div className="bg-white rounded-lg shadow-sm overflow-hidden">
                   <div className="p-6 border-b border-gray-200">
-                    <h2 className="text-lg font-medium text-gray-900">Payment Methods</h2>
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-lg font-medium text-gray-900">Payment Methods</h2>
+                      <button
+                        type="button"
+                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+                      >
+                        Add New Card
+                      </button>
+                    </div>
                   </div>
                   
                   <div className="p-6">
-                    <div className="space-y-4">
-                      {mockPaymentMethods.map((payment) => (
-                        <div key={payment.id} className="border border-gray-200 rounded-lg p-4 relative">
-                          {payment.default && (
-                            <span className="absolute top-4 right-4 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              Default
-                            </span>
-                          )}
-                          <div className="flex items-center space-x-4">
-                            {getCardIcon(payment.brand)}
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">
-                                {payment.brand} •••• {payment.last4}
-                              </p>
-                              <p className="text-sm text-gray-500">
-                                Expires {payment.expMonth}/{payment.expYear}
-                              </p>
+                    {paymentMethodsLoading ? (
+                      <div className="flex justify-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+                      </div>
+                    ) : userData?.paymentMethods?.length === 0 ? (
+                      <div className="text-center py-8">
+                        <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                        </svg>
+                        <h3 className="mt-2 text-sm font-medium text-gray-900">No payment methods saved</h3>
+                        <p className="mt-1 text-sm text-gray-500">Add a payment method to make checkout easier.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {userData?.paymentMethods?.map((payment) => (
+                          <div key={payment._id} className="border border-gray-200 rounded-lg p-4 relative">
+                            {payment.default && (
+                              <span className="absolute top-4 right-4 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                Default
+                              </span>
+                            )}
+                            <div className="flex items-center space-x-4">
+                              {getCardIcon(payment.brand)}
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">
+                                  {payment.brand} •••• {payment.last4}
+                                </p>
+                                <p className="text-sm text-gray-500">
+                                  Expires {payment.expMonth}/{payment.expYear}
+                                </p>
+                              </div>
                             </div>
-                          </div>
-                          <div className="mt-4 flex space-x-3">
-                            {!payment.default && (
+                            <div className="mt-4 flex space-x-3">
+                              {!payment.default && (
+                                <button
+                                  type="button"
+                                  className="text-sm text-gray-500 hover:text-gray-700"
+                                >
+                                  Set as Default
+                                </button>
+                              )}
                               <button
                                 type="button"
-                                className="text-sm text-gray-500 hover:text-gray-700"
+                                className="text-sm text-red-600 hover:text-red-500"
                               >
-                                Set as Default
+                                Remove
                               </button>
-                            )}
-                            <button
-                              type="button"
-                              className="text-sm text-red-600 hover:text-red-500"
-                            >
-                              Remove
-                            </button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
