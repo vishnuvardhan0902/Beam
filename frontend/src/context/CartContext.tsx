@@ -234,7 +234,12 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     
     // Clear cart in database if user is authenticated
     if (isAuthenticated && user) {
-      syncCartWithDatabase();
+      try {
+        // Send empty cart to database
+        updateUserCart([]);
+      } catch (error) {
+        console.error('Error clearing cart in database:', error);
+      }
     }
   };
 

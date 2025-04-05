@@ -5,7 +5,7 @@ import Footer from '../components/Footer';
 import { createRazorpayOrder, initializeRazorpayPayment, isRazorpayLoaded } from '../services/razorpay';
 import { useAuthContext } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-import { submitOrder } from '../services/api';
+import { submitOrder, createOrder } from '../services/api';
 
 const Checkout: React.FC = () => {
   const navigate = useNavigate();
@@ -93,11 +93,48 @@ const Checkout: React.FC = () => {
       currency: 'INR',
       name: 'Beam',
       description: `Order for ${cartItems.length} items`,
-      handler: function(response: any) {
+      handler: async function(response: any) {
         console.log("Payment successful:", response);
-        // Generate a local order ID
-        const localOrderId = 'order_' + Math.random().toString(36).substring(2, 9).toUpperCase();
-        setOrderId(localOrderId);
+        try {
+          // Create the order data
+          const orderData = {
+            orderItems: cartItems.map(item => ({
+              product: item.id,
+              name: item.title,
+              image: item.image,
+              price: item.price,
+              quantity: item.quantity,
+              color: item.color || 'default',
+              qty: item.quantity
+            })),
+            shippingAddress: {
+              address,
+              city,
+              postalCode: zip,
+              country
+            },
+            paymentMethod: 'razorpay',
+            paymentResult: {
+              id: response.razorpay_payment_id,
+              status: 'completed',
+              update_time: Date.now(),
+              email_address: email
+            },
+            itemsPrice: subtotal,
+            taxPrice: tax,
+            shippingPrice: shipping,
+            totalPrice: rawTotal
+          };
+
+          // Save order to database
+          const savedOrder = await createOrder(orderData);
+          console.log('Order saved to database:', savedOrder);
+          setOrderId(savedOrder._id || savedOrder.id || response.razorpay_payment_id);
+        } catch (error) {
+          console.error('Error saving order:', error);
+          // Still show success but use payment ID as order ID
+          setOrderId(response.razorpay_payment_id);
+        }
         setIsProcessing(false);
         setIsOrderComplete(true);
         
@@ -149,14 +186,50 @@ const Checkout: React.FC = () => {
       }
     } else {
       // Original card payment code (simulation)
-      setTimeout(() => {
-        const randomOrderId = Math.random().toString(36).substring(2, 9).toUpperCase();
-        setOrderId(randomOrderId);
-        setIsProcessing(false);
-        setIsOrderComplete(true);
-        
-        // Clear the cart after successful order
-        clearCart();
+      setTimeout(async () => {
+        try {
+          // Create the order data
+          const orderData = {
+            orderItems: cartItems.map(item => ({
+              product: item.id,
+              name: item.title,
+              image: item.image,
+              price: item.price,
+              quantity: item.quantity,
+              color: item.color || 'default',
+              qty: item.quantity
+            })),
+            shippingAddress: {
+              address,
+              city,
+              postalCode: zip,
+              country
+            },
+            paymentMethod: 'credit_card',
+            itemsPrice: subtotal,
+            taxPrice: tax,
+            shippingPrice: shipping,
+            totalPrice: rawTotal
+          };
+
+          // Save order to database
+          const savedOrder = await createOrder(orderData);
+          console.log('Order saved to database:', savedOrder);
+          setOrderId(savedOrder._id || savedOrder.id || Math.random().toString(36).substring(2, 9).toUpperCase());
+          setIsProcessing(false);
+          setIsOrderComplete(true);
+          
+          // Clear the cart after successful order
+          clearCart();
+        } catch (error) {
+          console.error('Error saving order:', error);
+          // Still show success to user but log the error
+          const randomOrderId = Math.random().toString(36).substring(2, 9).toUpperCase();
+          setOrderId(randomOrderId);
+          setIsProcessing(false);
+          setIsOrderComplete(true);
+          clearCart();
+        }
       }, 2000);
     }
   };

@@ -279,9 +279,21 @@ export const getUserCart = async () => {
 // Orders
 export const createOrder = async (order) => {
   try {
-    const { data } = await api.post('/orders', order);
+    // Ensure all required fields are present
+    const processedOrder = {
+      ...order,
+      orderItems: order.orderItems.map(item => ({
+        ...item,
+        // Ensure required fields exist
+        qty: item.qty || item.quantity || 1,
+        color: item.color || 'default'
+      }))
+    };
+    
+    const { data } = await api.post('/orders', processedOrder);
     return data;
   } catch (error) {
+    console.error('Error creating order:', error);
     throw error.response?.data?.message || error.message;
   }
 };
