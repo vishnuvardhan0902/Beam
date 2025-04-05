@@ -130,13 +130,27 @@ export const updateUserCart = async (cartItems) => {
   }
 };
 
+// Get user cart safely
 export const getUserCart = async () => {
   try {
+    // Check if user is authenticated first
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+    
+    if (!userInfo._id || !userInfo.token) {
+      console.log('User is not authenticated, cannot fetch cart');
+      return [];
+    }
+    
     const { data } = await api.get('/users/profile');
-    return data.cart || [];
+    
+    if (data && data.cart) {
+      return data.cart;
+    }
+    return [];
   } catch (error) {
     console.error('Error fetching user cart:', error);
-    throw error.response?.data?.message || error.message;
+    // Return empty cart instead of throwing to prevent app crash
+    return [];
   }
 };
 

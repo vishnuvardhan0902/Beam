@@ -237,6 +237,9 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     }
   };
 
+  // Calculate total items count for cart badge
+  const itemCount = cartItems.reduce((count, item) => count + item.quantity, 0);
+
   return (
     <CartContext.Provider
       value={{
@@ -244,6 +247,7 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
         shippingAddress,
         paymentMethod,
         loading,
+        itemCount,
         addToCart,
         removeFromCart,
         updateCartQuantity,

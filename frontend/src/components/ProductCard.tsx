@@ -2,55 +2,80 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 
 interface ProductCardProps {
-  product: {
-    id: string;
-    name: string;
-    price: number;
-    image?: string;
-    images?: string[];
-    category?: string;
-    rating?: number;
-    reviewCount?: number;
-    numReviews?: number;
-  };
+  id: string;
+  title?: string;
+  name?: string;
+  price: number;
+  image?: string;
+  images?: string[];
+  category?: string;
+  rating?: number;
+  reviewCount?: number;
+  numReviews?: number;
+  className?: string;
+  product?: any;
   showRating?: boolean;
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ product, showRating = true }) => {
-  const productImage = product.image || (product.images && product.images.length > 0 ? product.images[0] : 'https://via.placeholder.com/300');
-  const reviews = product.reviewCount || product.numReviews || 0;
+const ProductCard: React.FC<ProductCardProps> = (props) => {
+  // Handle both new props format and legacy product object format
+  const { product, showRating = true, className = '' } = props;
+  
+  // If using the new format, use direct props; otherwise extract from product object
+  const id = props.id || (product && product.id);
+  const title = props.title || (product && product.name);
+  const price = props.price || (product && product.price) || 0;
+  const category = props.category || (product && product.category);
+  const rating = props.rating || (product && product.rating) || 0;
+  const reviewCount = props.reviewCount || (product && (product.reviewCount || product.numReviews)) || 0;
+  
+  // Handle various image formats
+  let imageUrl = 'https://via.placeholder.com/300';
+  if (props.image) {
+    imageUrl = props.image;
+  } else if (product) {
+    if (product.image) {
+      imageUrl = product.image;
+    } else if (product.images && product.images.length > 0) {
+      imageUrl = product.images[0];
+    }
+  }
   
   return (
-    <div className="group relative">
+    <div className={`group relative ${className}`}>
       <div className="aspect-w-1 aspect-h-1 w-full overflow-hidden rounded-lg bg-gray-200 group-hover:opacity-75">
         <img
-          src={productImage}
-          alt={product.name}
+          src={imageUrl}
+          alt={title || 'Product'}
           className="h-full w-full object-cover object-center"
+          onError={(e) => {
+            e.currentTarget.src = 'https://via.placeholder.com/300';
+          }}
         />
       </div>
       <div className="mt-4 flex justify-between">
         <div>
           <h3 className="text-sm text-gray-700">
-            <Link to={`/product/${product.id}`}>
+            <Link to={`/product/${id}`}>
               <span aria-hidden="true" className="absolute inset-0" />
-              {product.name}
+              {title}
             </Link>
           </h3>
-          {product.category && (
-            <p className="mt-1 text-sm text-gray-500">{product.category}</p>
+          {category && (
+            <p className="mt-1 text-sm text-gray-500">{category}</p>
           )}
         </div>
-        <p className="text-sm font-medium text-gray-900">${product.price.toFixed(2)}</p>
+        <p className="text-sm font-medium text-gray-900">${price.toFixed(2)}</p>
       </div>
-      {showRating && product.rating !== undefined && (reviews > 0) && (
+      
+      {(showRating || true) && (
         <div className="mt-2 flex items-center">
           <div className="flex items-center">
             {[0, 1, 2, 3, 4].map((star) => (
               <svg
                 key={star}
                 className={`h-4 w-4 flex-shrink-0 ${
-                  product.rating > star ? 'text-yellow-400' : 'text-gray-300'
+                  rating > star ? 'text-yellow-400' : 'text-gray-300'
                 }`}
                 fill="currentColor"
                 viewBox="0 0 20 20"
@@ -60,7 +85,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, showRating = true })
             ))}
           </div>
           <p className="ml-2 text-xs text-gray-500">
-            {reviews} reviews
+            {reviewCount} reviews
           </p>
         </div>
       )}
