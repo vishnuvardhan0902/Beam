@@ -250,19 +250,27 @@ const SellerDashboard: React.FC = () => {
   const renderOrdersTab = () => {
     return (
       <div>
-        <h2 className="text-xl font-medium mb-6">Recent Orders</h2>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-medium">Your Orders</h2>
+          <div className="text-sm text-gray-500">
+            Showing {orders.length} recent orders
+          </div>
+        </div>
         
         {orders.length === 0 ? (
           <div className="bg-white rounded-lg shadow-sm p-6 text-center">
             <p className="text-gray-600">No orders found for your products.</p>
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+          <div className="bg-white rounded-lg shadow-sm overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Order ID
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Items
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Customer
@@ -271,7 +279,7 @@ const SellerDashboard: React.FC = () => {
                     Date
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Total
+                    Your Revenue
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
@@ -280,28 +288,73 @@ const SellerDashboard: React.FC = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {orders.map((order) => (
-                  <tr key={order._id}>
+                  <tr key={order._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-indigo-600">#{order._id}</div>
+                      <div className="text-sm font-medium text-indigo-600">#{order._id.substring(order._id.length - 8)}</div>
+                      <div className="text-xs text-gray-500">Full Order: ${order.totalPrice?.toFixed(2) || '0.00'}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{order.user.name}</div>
-                      <div className="text-sm text-gray-500">{order.user.email}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4">
                       <div className="text-sm text-gray-900">
-                        {new Date(order.createdAt).toLocaleDateString()}
+                        {order.orderItems && order.orderItems.map((item: any, index: number) => (
+                          <div key={index} className="mb-2 flex items-center">
+                            {item.image && (
+                              <img 
+                                src={item.image} 
+                                alt={item.name} 
+                                className="h-8 w-8 mr-2 rounded object-cover"
+                              />
+                            )}
+                            <div>
+                              <div className="text-xs font-medium text-gray-900">{item.name}</div>
+                              <div className="text-xs text-gray-500">
+                                {item.qty} x ${item.price?.toFixed(2) || '0.00'} = ${((item.qty || 0) * (item.price || 0)).toFixed(2)}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">${order.totalPrice.toFixed(2)}</div>
+                      <div className="text-sm text-gray-900">{order.user?.name || 'Customer'}</div>
+                      <div className="text-sm text-gray-500">{order.user?.email || 'No email'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                        ${order.isPaid ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}
-                      >
-                        {order.isPaid ? 'Paid' : 'Pending'}
-                      </span>
+                      <div className="text-sm text-gray-900">
+                        {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {order.createdAt ? new Date(order.createdAt).toLocaleTimeString() : ''}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        ${order.sellerTotal?.toFixed(2) || order.itemsPrice?.toFixed(2) || '0.00'}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {order.orderItems?.length || 0} item{order.orderItems?.length !== 1 ? 's' : ''}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                          ${order.isPaid ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}
+                        >
+                          {order.isPaid ? 'Paid' : 'Pending'}
+                        </span>
+                      </div>
+                      <div className="mt-1">
+                        {order.isDelivered ? (
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            bg-blue-100 text-blue-800">
+                            Delivered
+                          </span>
+                        ) : (
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            bg-gray-100 text-gray-800">
+                            Not Delivered
+                          </span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

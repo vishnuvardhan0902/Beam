@@ -267,25 +267,47 @@ const getSellerOrders = asyncHandler(async (req, res) => {
       .populate('user', 'name email')
       .sort({ createdAt: -1 });
     
+    console.log(`Found ${orders.length} orders for seller ${sellerId}`);
+    
     // Filter order items to only include this seller's items
     const sellerOrders = orders.map(order => {
       // Create a copy of the order
-      const sellerOrder = {
-        ...order.toObject(),
-        orderItems: order.orderItems.filter(
-          item => item.seller && item.seller.toString() === sellerId.toString()
-        )
-      };
+      const orderObj = order.toObject();
       
-      // Recalculate totals for this seller's items only
-      sellerOrder.itemsPrice = sellerOrder.orderItems.reduce(
-        (acc, item) => acc + item.price * item.qty, 0
+      // Filter order items to only include this seller's items
+      const sellerItems = orderObj.orderItems.filter(
+        item => item.seller && item.seller.toString() === sellerId.toString()
       );
       
-      return sellerOrder;
+      console.log(`Order ${orderObj._id} has ${sellerItems.length} items from this seller`);
+      
+      // Recalculate totals for this seller's items only
+      const itemsPrice = sellerItems.reduce(
+        (acc, item) => acc + (item.price * item.qty), 0
+      );
+      
+      // Return the modified order with only this seller's items
+      return {
+        ...orderObj,
+        orderItems: sellerItems,
+        itemsPrice: itemsPrice,
+        // We still include the original totalPrice, but we're adding the seller-specific price
+        sellerTotal: itemsPrice,
+        // Calculate seller's portion of tax and shipping based on item proportion
+        sellerTaxPrice: orderObj.totalPrice > 0 
+          ? (itemsPrice / (orderObj.totalPrice - orderObj.taxPrice - orderObj.shippingPrice)) * orderObj.taxPrice 
+          : 0,
+        sellerShippingPrice: orderObj.totalPrice > 0 
+          ? (itemsPrice / (orderObj.totalPrice - orderObj.taxPrice - orderObj.shippingPrice)) * orderObj.shippingPrice 
+          : 0,
+      };
     });
     
-    res.json(sellerOrders);
+    // Only return orders that have items from this seller
+    const filteredOrders = sellerOrders.filter(order => order.orderItems.length > 0);
+    
+    console.log(`Returning ${filteredOrders.length} filtered orders to seller`);
+    res.json(filteredOrders);
   } catch (error) {
     console.error('Error fetching seller orders:', error);
     res.status(500);
