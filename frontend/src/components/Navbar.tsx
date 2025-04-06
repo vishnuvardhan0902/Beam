@@ -38,6 +38,9 @@ const Navbar: React.FC = () => {
   const { user, logout, isAuthenticated } = useAuthContext();
   const { cartItems } = useCart();
   
+  // Get seller status
+  const isSeller = user?.isSeller || false;
+
   // Calculate item count from cart items
   const itemCount = cartItems.reduce((total, item) => total + item.quantity, 0);
 
@@ -221,6 +224,21 @@ const Navbar: React.FC = () => {
                     >
                       Orders
                     </Link>
+                    {isSeller ? (
+                      <Link
+                        to="/seller/dashboard"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        Seller Dashboard
+                      </Link>
+                    ) : (
+                      <Link
+                        to="/become-seller"
+                        className="block px-4 py-2 text-sm text-indigo-600 font-medium hover:bg-gray-100"
+                      >
+                        Become a Seller
+                      </Link>
+                    )}
                     <button
                       onClick={handleLogout}
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -306,6 +324,26 @@ const Navbar: React.FC = () => {
             >
               Orders
             </Link>
+            {isAuthenticated && isSeller && (
+              <Link
+                to="/seller/dashboard"
+                className={`block px-3 py-2 rounded-md text-base font-medium ${
+                  location.pathname.startsWith('/seller')
+                    ? 'bg-indigo-50 text-indigo-600'
+                    : 'text-gray-700 hover:bg-gray-50 hover:text-indigo-600'
+                }`}
+              >
+                Seller Dashboard
+              </Link>
+            )}
+            {isAuthenticated && !isSeller && (
+              <Link
+                to="/become-seller"
+                className="block px-3 py-2 rounded-md text-base font-medium bg-indigo-50 text-indigo-600"
+              >
+                Become a Seller
+              </Link>
+            )}
             {!isAuthenticated && (
               <>
                 <Link

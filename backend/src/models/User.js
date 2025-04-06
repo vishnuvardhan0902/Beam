@@ -23,6 +23,11 @@ const userSchema = mongoose.Schema(
       required: true,
       default: false,
     },
+    isSeller: {
+      type: Boolean,
+      required: true,
+      default: false,
+    },
     googleId: {
       type: String,
       required: false,
@@ -30,6 +35,36 @@ const userSchema = mongoose.Schema(
     avatar: {
       type: String,
       required: false,
+    },
+    sellerInfo: {
+      businessName: {
+        type: String,
+        required: function() {
+          return this.isSeller;
+        },
+      },
+      phoneNumber: {
+        type: String,
+        required: function() {
+          return this.isSeller;
+        },
+      },
+      address: {
+        type: String,
+        required: function() {
+          return this.isSeller;
+        },
+      },
+      taxId: String,
+      description: String,
+      rating: {
+        type: Number,
+        default: 0,
+      },
+      numReviews: {
+        type: Number,
+        default: 0,
+      },
     },
     cart: [
       {

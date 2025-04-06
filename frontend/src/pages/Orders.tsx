@@ -106,7 +106,7 @@ const Orders: React.FC = () => {
                                 : 'bg-yellow-100 text-yellow-800'
                             }`}
                           >
-                            {order.isPaid ? 'Paid' : 'Not Paid'}
+                            {order.isPaid ? 'Paid' : 'Paid'}
                           </p>
                           <p
                             className={`ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${

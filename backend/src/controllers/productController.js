@@ -60,20 +60,38 @@ const deleteProduct = asyncHandler(async (req, res) => {
 
 // @desc    Create a product
 // @route   POST /api/products
-// @access  Private/Admin
+// @access  Private/Admin or Seller
 const createProduct = asyncHandler(async (req, res) => {
+  const {
+    name,
+    price,
+    images,
+    brand,
+    category,
+    countInStock,
+    description,
+    colors,
+    features
+  } = req.body;
+
+  // Validate that we have at least one image
+  if (!images || images.length === 0) {
+    res.status(400);
+    throw new Error('At least one product image is required');
+  }
+
   const product = new Product({
-    name: 'Sample Product',
-    price: 0,
+    name: name || 'Sample Product',
+    price: price || 0,
     user: req.user._id,
-    images: ['/images/sample.jpg'],
-    brand: 'Sample Brand',
-    category: 'Sample Category',
-    countInStock: 0,
+    images: images,
+    brand: brand || 'Sample Brand',
+    category: category || 'Sample Category',
+    countInStock: countInStock || 0,
     numReviews: 0,
-    description: 'Sample description',
-    colors: [{ name: 'Black', value: 'black' }],
-    features: ['Sample feature'],
+    description: description || 'Sample description',
+    colors: colors || [{ name: 'Black', value: 'black' }],
+    features: features || ['Sample feature'],
   });
 
   const createdProduct = await product.save();
@@ -82,7 +100,7 @@ const createProduct = asyncHandler(async (req, res) => {
 
 // @desc    Update a product
 // @route   PUT /api/products/:id
-// @access  Private/Admin
+// @access  Private/Admin or Seller
 const updateProduct = asyncHandler(async (req, res) => {
   const {
     name,
@@ -99,15 +117,27 @@ const updateProduct = asyncHandler(async (req, res) => {
   const product = await Product.findById(req.params.id);
 
   if (product) {
-    product.name = name;
-    product.price = price;
-    product.description = description;
-    product.images = images;
-    product.brand = brand;
-    product.category = category;
-    product.countInStock = countInStock;
-    product.colors = colors;
-    product.features = features;
+    // Check if the user is the product owner or an admin
+    if (product.user.toString() !== req.user._id.toString() && !req.user.isAdmin) {
+      res.status(401);
+      throw new Error('Not authorized to update this product');
+    }
+
+    // Validate that we have at least one image
+    if (!images || images.length === 0) {
+      res.status(400);
+      throw new Error('At least one product image is required');
+    }
+
+    product.name = name || product.name;
+    product.price = price || product.price;
+    product.description = description || product.description;
+    product.images = images || product.images;
+    product.brand = brand || product.brand;
+    product.category = category || product.category;
+    product.countInStock = countInStock || product.countInStock;
+    product.colors = colors || product.colors;
+    product.features = features || product.features;
 
     const updatedProduct = await product.save();
     res.json(updatedProduct);
@@ -170,6 +200,16 @@ const getTopProducts = asyncHandler(async (req, res) => {
   res.json(products);
 });
 
+// @desc    Get seller's products
+// @route   GET /api/products/seller
+// @access  Private/Seller
+const getSellerProducts = asyncHandler(async (req, res) => {
+  const sellerId = req.user._id;
+  const products = await Product.find({ user: sellerId });
+  
+  res.json(products);
+});
+
 module.exports = {
   getProducts,
   getProductById,
@@ -178,4 +218,5 @@ module.exports = {
   updateProduct,
   createProductReview,
   getTopProducts,
+  getSellerProducts,
 }; 

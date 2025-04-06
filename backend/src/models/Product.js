@@ -20,6 +20,7 @@ const productSchema = mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       required: true,
       ref: 'User',
+      // This field represents the seller who created the product
     },
     name: {
       type: String,
@@ -75,6 +76,11 @@ const productSchema = mongoose.Schema(
         type: String,
       },
     ],
+    sales: {
+      type: Number,
+      default: 0,
+      // Track how many times this product has been sold
+    },
   },
   {
     timestamps: true,

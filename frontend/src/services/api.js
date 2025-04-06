@@ -325,4 +325,76 @@ export const listMyOrders = async () => {
   }
 };
 
+// Seller API functions
+export const getSellerProducts = async () => {
+  try {
+    const { data } = await api.get('/products/seller');
+    return data;
+  } catch (error) {
+    throw error.response?.data?.message || error.message;
+  }
+};
+
+export const createProduct = async (productData) => {
+  try {
+    const { data } = await api.post('/products', productData, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    return data;
+  } catch (error) {
+    throw error.response?.data?.message || error.message;
+  }
+};
+
+export const updateProduct = async (id, productData) => {
+  try {
+    const { data } = await api.put(`/products/${id}`, productData, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    return data;
+  } catch (error) {
+    throw error.response?.data?.message || error.message;
+  }
+};
+
+export const deleteProduct = async (id) => {
+  try {
+    const { data } = await api.delete(`/products/${id}`);
+    return data;
+  } catch (error) {
+    throw error.response?.data?.message || error.message;
+  }
+};
+
+export const getSellerOrders = async () => {
+  try {
+    const { data } = await api.get('/orders/seller');
+    return data;
+  } catch (error) {
+    throw error.response?.data?.message || error.message;
+  }
+};
+
+export const getSellerDashboardData = async () => {
+  try {
+    const { data } = await api.get('/sellers/dashboard');
+    return data;
+  } catch (error) {
+    throw error.response?.data?.message || error.message;
+  }
+};
+
+export const getSellerSales = async (period = 'monthly') => {
+  try {
+    const { data } = await api.get(`/sellers/sales?period=${period}`);
+    return data;
+  } catch (error) {
+    throw error.response?.data?.message || error.message;
+  }
+};
+
 export default api; 

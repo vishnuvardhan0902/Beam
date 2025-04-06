@@ -12,6 +12,9 @@ import Profile from './pages/Profile';
 import NotFound from './pages/NotFound';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import SellerDashboard from './pages/SellerDashboard';
+import ProductEditor from './pages/ProductEditor';
+import BecomeSeller from './pages/BecomeSeller';
 
 // Import context providers
 import { AuthContextProvider } from './context/AuthContext';
@@ -42,6 +45,13 @@ const App: React.FC = () => {
           <Route path="/profile" element={<Profile />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/become-seller" element={<BecomeSeller />} />
+          
+          {/* Seller Routes */}
+          <Route path="/seller/dashboard" element={<SellerDashboard />} />
+          <Route path="/seller/product/new" element={<ProductEditor />} />
+          <Route path="/seller/product/:id" element={<ProductEditor />} />
+          
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Router>

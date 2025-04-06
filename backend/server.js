@@ -7,6 +7,7 @@ const userRoutes = require('./src/routes/userRoutes');
 const productRoutes = require('./src/routes/productRoutes');
 const orderRoutes = require('./src/routes/orderRoutes');
 const paymentRoutes = require('./src/routes/paymentRoutes');
+const sellerRoutes = require('./src/routes/sellerRoutes');
 const path = require('path');
 
 // Load environment variables
@@ -32,6 +33,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/api/sellers', sellerRoutes);
 
 // Create a simple health check endpoint
 app.get('/api/config/paypal', (req, res) => 

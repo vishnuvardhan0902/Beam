@@ -168,6 +168,13 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
     }
   };
 
+  // Function to update user data directly (useful for updating seller status)
+  const updateUserState = (userData: User): void => {
+    setUser(userData);
+    // Also update the stored user data
+    localStorage.setItem('userInfo', JSON.stringify(userData));
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -178,8 +185,10 @@ export const AuthContextProvider: React.FC<AuthProviderProps> = ({ children }) =
         register,
         googleLogin,
         logout,
+        updateUserState,
         isAuthenticated: !!user,
         isAdmin: user?.isAdmin || false,
+        isSeller: user?.isSeller || false,
       }}
     >
       {children}

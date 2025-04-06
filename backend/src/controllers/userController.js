@@ -18,6 +18,8 @@ const authUser = asyncHandler(async (req, res) => {
       name: user.name,
       email: user.email,
       isAdmin: user.isAdmin,
+      isSeller: user.isSeller,
+      sellerInfo: user.sellerInfo,
       token: generateToken(user._id),
     });
   } else {
@@ -30,7 +32,7 @@ const authUser = asyncHandler(async (req, res) => {
 // @route   POST /api/users
 // @access  Public
 const registerUser = asyncHandler(async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, isSeller, sellerInfo } = req.body;
 
   // Check if user already exists
   const userExists = await User.findOne({ email });
@@ -41,11 +43,19 @@ const registerUser = asyncHandler(async (req, res) => {
   }
 
   // Create new user
-  const user = await User.create({
+  const userData = {
     name,
     email,
     password,
-  });
+    isSeller: isSeller || false,
+  };
+  
+  // Add sellerInfo if user is registering as a seller
+  if (isSeller && sellerInfo) {
+    userData.sellerInfo = sellerInfo;
+  }
+  
+  const user = await User.create(userData);
 
   if (user) {
     // If user is created successfully, send back user data and token
@@ -54,6 +64,8 @@ const registerUser = asyncHandler(async (req, res) => {
       name: user.name,
       email: user.email,
       isAdmin: user.isAdmin,
+      isSeller: user.isSeller,
+      sellerInfo: user.sellerInfo,
       token: generateToken(user._id),
     });
   } else {
@@ -75,6 +87,8 @@ const getUserProfile = asyncHandler(async (req, res) => {
       name: user.name,
       email: user.email,
       isAdmin: user.isAdmin,
+      isSeller: user.isSeller,
+      sellerInfo: user.sellerInfo,
       avatar: user.avatar,
       createdAt: user.createdAt,
       cart: user.cart || [],
@@ -96,6 +110,19 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     user.name = req.body.name || user.name;
     user.email = req.body.email || user.email;
     
+    // Handle seller status update
+    if (req.body.isSeller !== undefined) {
+      user.isSeller = req.body.isSeller;
+    }
+    
+    // Handle seller info if provided
+    if (req.body.sellerInfo) {
+      user.sellerInfo = {
+        ...user.sellerInfo || {}, // Keep existing sellerInfo if any
+        ...req.body.sellerInfo
+      };
+    }
+    
     // Update password if it's provided
     if (req.body.password) {
       user.password = req.body.password;
@@ -108,6 +135,8 @@ const updateUserProfile = asyncHandler(async (req, res) => {
       name: updatedUser.name,
       email: updatedUser.email,
       isAdmin: updatedUser.isAdmin,
+      isSeller: updatedUser.isSeller,
+      sellerInfo: updatedUser.sellerInfo,
       token: generateToken(updatedUser._id),
     });
   } else {
@@ -219,6 +248,8 @@ const googleAuth = asyncHandler(async (req, res) => {
       name: user.name,
       email: user.email,
       isAdmin: user.isAdmin,
+      isSeller: user.isSeller,
+      sellerInfo: user.sellerInfo,
       avatar: user.avatar,
       token: generateToken(user._id),
     });
