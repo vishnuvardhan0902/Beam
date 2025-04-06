@@ -24,6 +24,7 @@ interface Product {
   brand?: string;
   countInStock?: number;
   image?: string;
+  user?: string; // Seller/creator ID
 }
 
 const ProductDetail: React.FC = () => {
@@ -47,6 +48,7 @@ const ProductDetail: React.FC = () => {
         setLoading(true);
         if (id) {
           const data = await getProductDetails(id);
+          console.log('Product data from API:', data);
           
           // Transform API data to match our interface
           const formattedProduct: Product = {
@@ -66,7 +68,8 @@ const ProductDetail: React.FC = () => {
             category: data.category,
             brand: data.brand,
             countInStock: data.countInStock,
-            image: data.images && data.images.length > 0 ? data.images[0] : undefined
+            image: data.images && data.images.length > 0 ? data.images[0] : undefined,
+            user: data.user // This is the seller ID
           };
           
           setProduct(formattedProduct);
@@ -111,7 +114,9 @@ const ProductDetail: React.FC = () => {
         title: product.name,
         price: product.price,
         image: product.images[selectedImage],
-        quantity: quantity
+        quantity: quantity,
+        color: selectedColor,
+        seller: product.user // Include the seller ID
       };
       
       // Add to cart using context

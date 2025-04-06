@@ -5,6 +5,7 @@ export interface CartItem {
   image: string;
   quantity: number;
   color?: string;
+  seller?: string; // ID of the seller who owns this product
 }
 
 export interface ShippingAddress {

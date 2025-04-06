@@ -310,8 +310,10 @@ export const getOrderDetails = async (id) => {
 export const payOrder = async (orderId, paymentResult) => {
   try {
     const { data } = await api.put(`/orders/${orderId}/pay`, paymentResult);
+    console.log('Order marked as paid:', data);
     return data;
   } catch (error) {
+    console.error('Error marking order as paid:', error);
     throw error.response?.data?.message || error.message;
   }
 };
@@ -391,6 +393,15 @@ export const getSellerDashboardData = async () => {
 export const getSellerSales = async (period = 'monthly') => {
   try {
     const { data } = await api.get(`/sellers/sales?period=${period}`);
+    return data;
+  } catch (error) {
+    throw error.response?.data?.message || error.message;
+  }
+};
+
+export const getSellerSalesHistory = async (page = 1, limit = 50) => {
+  try {
+    const { data } = await api.get(`/sellers/sales-history?page=${page}&limit=${limit}`);
     return data;
   } catch (error) {
     throw error.response?.data?.message || error.message;

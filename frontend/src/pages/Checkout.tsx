@@ -5,7 +5,7 @@ import Footer from '../components/Footer';
 import { createRazorpayOrder, initializeRazorpayPayment, isRazorpayLoaded } from '../services/razorpay';
 import { useAuthContext } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-import { submitOrder, createOrder } from '../services/api';
+import { createOrder, payOrder } from '../services/api';
 
 const Checkout: React.FC = () => {
   const navigate = useNavigate();
@@ -105,7 +105,9 @@ const Checkout: React.FC = () => {
               price: item.price,
               quantity: item.quantity,
               color: item.color || 'default',
-              qty: item.quantity
+              qty: item.quantity,
+              // Ensure seller ID is included
+              seller: item.seller || undefined
             })),
             shippingAddress: {
               address,
@@ -114,12 +116,6 @@ const Checkout: React.FC = () => {
               country
             },
             paymentMethod: 'razorpay',
-            paymentResult: {
-              id: response.razorpay_payment_id,
-              status: 'completed',
-              update_time: Date.now(),
-              email_address: email
-            },
             itemsPrice: subtotal,
             taxPrice: tax,
             shippingPrice: shipping,
@@ -129,6 +125,26 @@ const Checkout: React.FC = () => {
           // Save order to database
           const savedOrder = await createOrder(orderData);
           console.log('Order saved to database:', savedOrder);
+          
+          // Mark the order as paid to trigger seller sales recording
+          if (savedOrder && savedOrder._id) {
+            const paymentResult = {
+              id: response.razorpay_payment_id,
+              status: 'completed',
+              update_time: Date.now(),
+              email_address: email
+            };
+            
+            try {
+              // Explicitly mark order as paid
+              const paidOrder = await payOrder(savedOrder._id, paymentResult);
+              console.log('Order marked as paid:', paidOrder);
+            } catch (payError) {
+              console.error('Error marking order as paid:', payError);
+              // Continue with order completion even if payment update fails
+            }
+          }
+          
           setOrderId(savedOrder._id || savedOrder.id || response.razorpay_payment_id);
         } catch (error) {
           console.error('Error saving order:', error);
@@ -197,7 +213,9 @@ const Checkout: React.FC = () => {
               price: item.price,
               quantity: item.quantity,
               color: item.color || 'default',
-              qty: item.quantity
+              qty: item.quantity,
+              // Ensure seller ID is included
+              seller: item.seller || undefined
             })),
             shippingAddress: {
               address,
@@ -215,6 +233,26 @@ const Checkout: React.FC = () => {
           // Save order to database
           const savedOrder = await createOrder(orderData);
           console.log('Order saved to database:', savedOrder);
+          
+          // Mark the order as paid to trigger seller sales recording
+          if (savedOrder && savedOrder._id) {
+            const paymentResult = {
+              id: Math.random().toString(36).substring(2, 15),
+              status: 'completed',
+              update_time: Date.now(),
+              email_address: email
+            };
+            
+            try {
+              // Explicitly mark order as paid
+              const paidOrder = await payOrder(savedOrder._id, paymentResult);
+              console.log('Order marked as paid:', paidOrder);
+            } catch (payError) {
+              console.error('Error marking order as paid:', payError);
+              // Continue with order completion even if payment update fails
+            }
+          }
+          
           setOrderId(savedOrder._id || savedOrder.id || Math.random().toString(36).substring(2, 9).toUpperCase());
           setIsProcessing(false);
           setIsOrderComplete(true);

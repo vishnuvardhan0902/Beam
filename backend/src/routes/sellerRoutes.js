@@ -4,7 +4,8 @@ const { protect, sellerAuth } = require('../middleware/authMiddleware');
 const {
   getSellerDashboard,
   getSellerSales,
-  getSellerOrders
+  getSellerOrders,
+  getSellerSalesHistory
 } = require('../controllers/sellerController');
 
 // All seller routes require authentication
@@ -19,5 +20,8 @@ router.route('/sales').get(getSellerSales);
 
 // Get seller orders
 router.route('/orders').get(getSellerOrders);
+
+// Get seller sales history
+router.route('/sales-history').get(getSellerSalesHistory);
 
 module.exports = router; 

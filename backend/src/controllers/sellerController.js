@@ -2,6 +2,7 @@ const asyncHandler = require('express-async-handler');
 const Product = require('../models/Product');
 const Order = require('../models/Order');
 const User = require('../models/User');
+const SellerSales = require('../models/SellerSales');
 
 // @desc    Get seller dashboard data (summary statistics)
 // @route   GET /api/sellers/dashboard
@@ -14,40 +15,76 @@ const getSellerDashboard = asyncHandler(async (req, res) => {
     // Get total products for this seller
     const totalProducts = await Product.countDocuments({ user: sellerId }) || 0;
 
-    // Try to get orders that contain products from this seller
-    let orders = [];
-    try {
-      orders = await Order.find({ 'orderItems.seller': sellerId });
-    } catch (error) {
-      console.log('Error finding orders, using empty array:', error);
-      // Continue with empty orders array
-    }
+    // Get seller sales data from SellerSales collection
+    const salesData = await SellerSales.find({ seller: sellerId });
 
-    // Calculate total revenue and orders
+    // Calculate statistics from sales data
     let totalRevenue = 0;
-    let totalOrders = orders.length;
     let totalItemsSold = 0;
-
-    // Loop through orders to calculate revenue
-    orders.forEach(order => {
-      // Only count items that belong to this seller
-      order.orderItems.forEach(item => {
-        if (item.seller && item.seller.toString() === sellerId.toString()) {
-          totalRevenue += item.price * item.qty;
-          totalItemsSold += item.qty;
-        }
-      });
+    const uniqueOrderIds = new Set();
+    
+    salesData.forEach(sale => {
+      totalRevenue += sale.totalAmount;
+      totalItemsSold += sale.quantity;
+      uniqueOrderIds.add(sale.order.toString());
     });
+    
+    const totalOrders = uniqueOrderIds.size;
 
-    // Get top selling products or return empty array if error
+    // Get top selling products based on sales collection
     let topProducts = [];
     try {
-      topProducts = await Product.find({ user: sellerId })
-        .sort({ 'sales': -1 })
-        .limit(5);
+      // Aggregate to find top products
+      const topProductsAgg = await SellerSales.aggregate([
+        { $match: { seller: sellerId } },
+        { $group: { 
+            _id: '$product', 
+            totalSold: { $sum: '$quantity' },
+            totalRevenue: { $sum: '$totalAmount' },
+            productName: { $first: '$productName' }
+          }
+        },
+        { $sort: { totalSold: -1 } },
+        { $limit: 5 }
+      ]);
+      
+      // Get the actual product details
+      if (topProductsAgg.length > 0) {
+        const productIds = topProductsAgg.map(item => item._id);
+        const products = await Product.find({ _id: { $in: productIds } });
+        
+        // Merge product details with aggregation results
+        topProducts = topProductsAgg.map(agg => {
+          const productDetails = products.find(p => p._id.toString() === agg._id.toString());
+          return {
+            ...productDetails?.toObject(),
+            totalSold: agg.totalSold,
+            totalRevenue: agg.totalRevenue
+          };
+        });
+      }
     } catch (error) {
       console.log('Error finding top products, using empty array:', error);
       // Continue with empty products array
+    }
+
+    // Get recent orders
+    let recentOrders = [];
+    try {
+      // Get the most recent sales by order
+      const recentSales = await SellerSales.find({ seller: sellerId })
+        .sort({ createdAt: -1 })
+        .limit(20);
+        
+      // Extract unique order IDs
+      const recentOrderIds = [...new Set(recentSales.map(sale => sale.order))];
+      
+      // Get the actual orders
+      recentOrders = await Order.find({ 
+        _id: { $in: recentOrderIds.slice(0, 5) } 
+      }).populate('user', 'name email');
+    } catch (error) {
+      console.log('Error finding recent orders, using empty array:', error);
     }
 
     // If there's no real data yet, provide sample data for UI testing
@@ -69,7 +106,7 @@ const getSellerDashboard = asyncHandler(async (req, res) => {
       totalProducts,
       totalItemsSold,
       topProducts,
-      recentOrders: orders.slice(0, 5) // Last 5 orders
+      recentOrders
     });
   } catch (error) {
     console.error('Error fetching seller dashboard:', error);
@@ -87,23 +124,12 @@ const getSellerSales = asyncHandler(async (req, res) => {
   const { period = 'monthly' } = req.query;
 
   try {
-    // Try to get orders for this seller
-    let orders = [];
-    try {
-      orders = await Order.find({ 
-        'orderItems.seller': sellerId,
-        isPaid: true
-      }).sort({ createdAt: 1 });
-    } catch (error) {
-      console.log('Error finding orders, using empty array:', error);
-    }
-
     // Initialize sales data based on period
     let salesData = [];
     const now = new Date();
     
     if (period === 'weekly') {
-      // Get sales for last 7 days
+      // Define dates for the last 7 days
       for (let i = 6; i >= 0; i--) {
         const date = new Date(now);
         date.setDate(date.getDate() - i);
@@ -117,7 +143,7 @@ const getSellerSales = asyncHandler(async (req, res) => {
         });
       }
     } else if (period === 'monthly') {
-      // Get sales for last 6 months
+      // Define dates for the last 6 months
       for (let i = 5; i >= 0; i--) {
         const date = new Date(now);
         date.setMonth(date.getMonth() - i);
@@ -131,7 +157,7 @@ const getSellerSales = asyncHandler(async (req, res) => {
         });
       }
     } else if (period === 'yearly') {
-      // Get sales for last 5 years
+      // Define dates for the last 5 years
       for (let i = 4; i >= 0; i--) {
         const date = new Date(now);
         date.setFullYear(date.getFullYear() - i);
@@ -145,41 +171,11 @@ const getSellerSales = asyncHandler(async (req, res) => {
       }
     }
 
-    // Process orders to populate sales data
-    orders.forEach(order => {
-      const orderDate = new Date(order.createdAt);
-      let periodKey;
-      
-      if (period === 'weekly') {
-        periodKey = orderDate.toLocaleDateString('en-US', { weekday: 'short' });
-      } else if (period === 'monthly') {
-        periodKey = orderDate.toLocaleDateString('en-US', { month: 'short' });
-      } else if (period === 'yearly') {
-        periodKey = orderDate.getFullYear().toString();
-      }
-      
-      // Find matching period in salesData
-      const periodData = salesData.find(item => item.period === periodKey);
-      if (periodData) {
-        let orderIncludesSeller = false;
-        
-        // Calculate revenue from this seller's items only
-        order.orderItems.forEach(item => {
-          if (item.seller && item.seller.toString() === sellerId.toString()) {
-            periodData.revenue += item.price * item.qty;
-            orderIncludesSeller = true;
-          }
-        });
-        
-        // Only increment order count if this seller's items were in the order
-        if (orderIncludesSeller) {
-          periodData.orders += 1;
-        }
-      }
-    });
+    // Get seller sales data from the database
+    const sellerSales = await SellerSales.find({ seller: sellerId });
 
-    // If there's no real sales data, provide sample data
-    if (orders.length === 0) {
+    // No sales data found - return sample data
+    if (sellerSales.length === 0) {
       if (period === 'weekly') {
         // Sample weekly data
         salesData = salesData.map((item, index) => {
@@ -208,7 +204,48 @@ const getSellerSales = asyncHandler(async (req, res) => {
           };
         });
       }
+      return res.json(salesData);
     }
+
+    // Process real sales data to populate the salesData array
+    sellerSales.forEach(sale => {
+      const saleDate = new Date(sale.orderDate);
+      let periodKey;
+      
+      if (period === 'weekly') {
+        periodKey = saleDate.toLocaleDateString('en-US', { weekday: 'short' });
+      } else if (period === 'monthly') {
+        periodKey = saleDate.toLocaleDateString('en-US', { month: 'short' });
+      } else if (period === 'yearly') {
+        periodKey = saleDate.getFullYear().toString();
+      }
+      
+      // Find matching period in salesData
+      const periodData = salesData.find(item => item.period === periodKey);
+      if (periodData) {
+        // Add sale revenue to period
+        periodData.revenue += sale.totalAmount;
+        
+        // Track unique orders per period
+        // Create a unique key for this order in this period
+        const orderKey = `${sale.order.toString()}-${periodKey}`;
+        
+        // Use a Set to track unique orders in this period
+        if (!periodData.uniqueOrders) {
+          periodData.uniqueOrders = new Set();
+        }
+        
+        periodData.uniqueOrders.add(orderKey);
+        periodData.orders = periodData.uniqueOrders.size;
+      }
+    });
+
+    // Clean up by removing the uniqueOrders Set which we don't want to return in the API
+    salesData.forEach(data => {
+      if (data.uniqueOrders) {
+        delete data.uniqueOrders;
+      }
+    });
 
     res.json(salesData);
   } catch (error) {
@@ -256,8 +293,44 @@ const getSellerOrders = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Get seller sales history
+// @route   GET /api/sellers/sales-history
+// @access  Private/Seller
+const getSellerSalesHistory = asyncHandler(async (req, res) => {
+  const sellerId = req.user._id;
+  const { limit = 50, page = 1 } = req.query;
+  
+  try {
+    // Pagination
+    const pageSize = parseInt(limit);
+    const currentPage = parseInt(page);
+    const skip = (currentPage - 1) * pageSize;
+    
+    // Get sales history
+    const salesHistory = await SellerSales.find({ seller: sellerId })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(pageSize);
+      
+    // Get total count
+    const total = await SellerSales.countDocuments({ seller: sellerId });
+    
+    res.json({
+      sales: salesHistory,
+      page: currentPage,
+      pages: Math.ceil(total / pageSize),
+      total
+    });
+  } catch (error) {
+    console.error('Error fetching seller sales history:', error);
+    res.status(500);
+    throw new Error('Error fetching sales history');
+  }
+});
+
 module.exports = {
   getSellerDashboard,
   getSellerSales,
-  getSellerOrders
+  getSellerOrders,
+  getSellerSalesHistory
 }; 
