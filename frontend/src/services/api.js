@@ -408,4 +408,76 @@ export const getSellerSalesHistory = async (page = 1, limit = 50) => {
   }
 };
 
+// Get optimized price recommendation from Gemini API
+export const getOptimizedPrice = async (productDetails) => {
+  try {
+    const geminiEndpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=";
+    const geminiApiKey = "AIzaSyC_uXWIh-_J0xOZq9MGtS9pMy5a0zEZXNo";
+    
+    const payload = {
+      contents: [
+        {
+          parts: [
+            {
+              text: `Based on the following product details, recommend an optimized price in USD that would be competitive in the market while maximizing profit potential. Format your response as a number only (e.g., 49.99).
+
+Product name: ${productDetails.name}
+Category: ${productDetails.category}
+Brand: ${productDetails.brand}
+Description: ${productDetails.description}
+Features: ${productDetails.features.join(', ')}
+Stock quantity: ${productDetails.countInStock}
+Current suggested price: ${productDetails.price || 0}
+`
+            }
+          ]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 100
+      }
+    };
+
+    console.log('Sending request to Gemini API:', payload);
+    
+    const response = await fetch(`${geminiEndpoint}${geminiApiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+    
+    const data = await response.json();
+    console.log('Gemini API response:', data);
+    
+    if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+      const priceText = data.candidates[0].content.parts[0].text.trim();
+      
+      // Try to extract just the number from the response
+      const priceMatch = priceText.match(/\$?(\d+\.?\d*)/);
+      if (priceMatch && priceMatch[1]) {
+        return parseFloat(priceMatch[1]);
+      }
+      
+      // If we can't extract a number pattern, try to parse the whole response
+      const parsedPrice = parseFloat(priceText);
+      if (!isNaN(parsedPrice)) {
+        return parsedPrice;
+      }
+      
+      // If all else fails, return the original price
+      console.log('Could not extract price from Gemini response');
+      return productDetails.price || 0;
+    } else {
+      console.error('Invalid response from Gemini API');
+      return productDetails.price || 0;
+    }
+  } catch (error) {
+    console.error('Error getting optimized price:', error);
+    return productDetails.price || 0; // Return original price on error
+  }
+};
+
 export default api; 

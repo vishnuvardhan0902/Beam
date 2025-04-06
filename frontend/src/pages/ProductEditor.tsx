@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAuthContext } from '../context/AuthContext';
 import { getProductDetails, createProduct, updateProduct } from '../services/api';
+import { getOptimizedPrice } from '../services/priceOptimizer';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
@@ -46,6 +47,8 @@ const ProductEditor: React.FC = () => {
   const [success, setSuccess] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [isOptimizingPrice, setIsOptimizingPrice] = useState(false);
+  const [optimizedPrice, setOptimizedPrice] = useState<number | null>(null);
 
   // Ensure only sellers can access this page
   useEffect(() => {
@@ -236,6 +239,49 @@ const ProductEditor: React.FC = () => {
       setError(err.message || 'Failed to save product');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handle optimizing price with Gemini API
+  const handleOptimizePrice = async () => {
+    if (!name || !category || !description) {
+      setError('Please fill in name, category, and description before optimizing price');
+      return;
+    }
+    
+    try {
+      setIsOptimizingPrice(true);
+      setError(null);
+      
+      const productDetails = {
+        name,
+        price: parseFloat(price) || 0,
+        category,
+        brand,
+        description,
+        features,
+        countInStock: parseInt(countInStock) || 0
+      };
+      
+      console.log('Requesting price optimization for:', productDetails);
+      const suggestedPrice = await getOptimizedPrice(productDetails);
+      console.log('Received optimized price:', suggestedPrice);
+      
+      setOptimizedPrice(suggestedPrice);
+      // Don't automatically set the price - let the user decide
+      
+    } catch (err: any) {
+      setError('Failed to optimize price: ' + (err.message || 'Unknown error'));
+      console.error('Price optimization error:', err);
+    } finally {
+      setIsOptimizingPrice(false);
+    }
+  };
+  
+  const applyOptimizedPrice = () => {
+    if (optimizedPrice) {
+      setPrice(optimizedPrice.toString());
+      setOptimizedPrice(null); // Clear the suggestion after applying
     }
   };
 
@@ -534,6 +580,63 @@ const ProductEditor: React.FC = () => {
                   required
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 ></textarea>
+              </div>
+              
+              {/* Price Optimization */}
+              <div className="border-t pt-4">
+                <h3 className="text-lg font-medium mb-2">Price Optimization</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Get an AI-suggested optimal price based on your product details to maximize your sales potential.
+                </p>
+                
+                <div className="flex items-center">
+                  <button
+                    type="button"
+                    onClick={handleOptimizePrice}
+                    disabled={isOptimizingPrice || loading}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 flex items-center"
+                  >
+                    {isOptimizingPrice ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Optimizing...
+                      </>
+                    ) : (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+                        </svg>
+                        Optimize Price
+                      </>
+                    )}
+                  </button>
+                  
+                  {optimizedPrice !== null && (
+                    <div className="ml-4 flex items-center">
+                      <div className="bg-green-100 px-3 py-2 rounded-md">
+                        <span className="text-sm text-gray-700">Suggested price: </span>
+                        <span className="font-bold text-green-700">${optimizedPrice.toFixed(2)}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={applyOptimizedPrice}
+                        className="ml-2 px-3 py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700"
+                      >
+                        Apply
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setOptimizedPrice(null)}
+                        className="ml-2 text-gray-500 hover:text-gray-700"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
               
               {/* Submit Button */}
