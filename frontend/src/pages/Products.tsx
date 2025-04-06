@@ -60,7 +60,8 @@ const Products: React.FC = () => {
         const params = {
           keyword: searchKeyword,
           pageNumber: page.toString(),
-          limit: productsPerPage.toString()
+          limit: productsPerPage.toString(),
+          category: selectedCategory || ''
         };
         const data = await getProducts(params);
         // Transform backend data to match our interface
@@ -90,7 +91,7 @@ const Products: React.FC = () => {
     };
 
     fetchProducts();
-  }, [searchKeyword, page, productsPerPage]);
+  }, [searchKeyword, page, productsPerPage, selectedCategory]);
 
   // Fetch all products for filtering (without pagination)
   useEffect(() => {
@@ -100,7 +101,8 @@ const Products: React.FC = () => {
         const params = {
           keyword: searchKeyword,
           pageNumber: '1',
-          limit: '1000'
+          limit: '1000',
+          category: selectedCategory || ''
         };
         const data = await getProducts(params);
         const formattedProducts = data.products.map((product: any) => ({
@@ -134,7 +136,7 @@ const Products: React.FC = () => {
     };
 
     fetchAllProducts();
-  }, [searchKeyword]);
+  }, [searchKeyword, selectedCategory]);
 
   // Reset to page 1 when search keyword changes
   useEffect(() => {
@@ -144,11 +146,10 @@ const Products: React.FC = () => {
   // Derive categories from all products, not just current page
   const categories = Array.from(new Set(allProducts.map(product => product.category)));
 
-  // Filter products by category and price range
+  // Filter products by price range only (category filtering is now done on the backend)
   const filteredProducts = products.filter(product => {
-    const matchesCategory = selectedCategory ? product.category === selectedCategory : true;
     const matchesPriceRange = product.price >= priceRange[0] && product.price <= priceRange[1];
-    return matchesCategory && matchesPriceRange;
+    return matchesPriceRange;
   });
 
   // Sort products based on selected option
@@ -168,6 +169,7 @@ const Products: React.FC = () => {
   const handleCategoryChange = (category: string | null) => {
     setSelectedCategory(category);
     setPage(1); // Reset to first page when changing category
+    setLoading(true); // Set loading state to true to show loading indicator
   };
 
   const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {

@@ -48,7 +48,12 @@ interface PaymentMethod {
   isDefault: boolean;
 }
 
-export function getProducts(keyword?: string, pageNumber?: string): Promise<ProductsApiResponse>;
+export function getProducts(params?: {
+  keyword?: string;
+  pageNumber?: string;
+  limit?: string;
+  category?: string;
+}): Promise<ProductsApiResponse>;
 export function getProductDetails(id: string): Promise<Product>;
 export function getTopProducts(): Promise<Product[]>;
 

@@ -11,21 +11,27 @@ const getProducts = asyncHandler(async (req, res) => {
   const pageSize = Number(req.query.limit) || 8;
   const page = Number(req.query.pageNumber) || 1;
 
-  // Get search keyword from query string if it exists
-  const keyword = req.query.keyword
-    ? {
-        name: {
-          $regex: req.query.keyword,
-          $options: 'i',
-        },
-      }
-    : {};
+  // Build the query object
+  const queryObj = {};
 
-  // Get total count of products that match the keyword
-  const count = await Product.countDocuments({ ...keyword });
+  // Add keyword search if provided
+  if (req.query.keyword) {
+    queryObj.name = {
+      $regex: req.query.keyword,
+      $options: 'i',
+    };
+  }
+
+  // Add category filter if provided
+  if (req.query.category) {
+    queryObj.category = req.query.category;
+  }
+
+  // Get total count of products that match the query
+  const count = await Product.countDocuments(queryObj);
   
   // Get products with pagination
-  const products = await Product.find({ ...keyword })
+  const products = await Product.find(queryObj)
     .limit(pageSize)
     .skip(pageSize * (page - 1));
 

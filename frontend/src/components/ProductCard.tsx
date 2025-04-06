@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { CartItem } from '../types/cart';
 
 interface ProductCardProps {
   id: string;
@@ -48,7 +49,16 @@ const ProductCard: React.FC<ProductCardProps> = (props) => {
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    addToCart(id, 1);
+    
+    const cartItem: CartItem = {
+      id,
+      title: title || '',
+      price,
+      image: imageUrl,
+      quantity: 1
+    };
+    
+    addToCart(cartItem);
   };
   
   return (

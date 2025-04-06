@@ -27,12 +27,13 @@ api.interceptors.request.use(
 // Define types for params
 export const getProducts = async (params = {}) => {
   try {
-    const { keyword = '', pageNumber = '', limit = 18 } = params;
+    const { keyword = '', pageNumber = '', limit = 18, category = '' } = params;
     const queryParams = new URLSearchParams();
     
     if (keyword) queryParams.append('keyword', keyword);
     if (pageNumber) queryParams.append('pageNumber', pageNumber);
     if (limit) queryParams.append('limit', limit.toString());
+    if (category) queryParams.append('category', category);
     
     const { data } = await api.get(`/products?${queryParams.toString()}`);
     console.log('Fetched products from MongoDB:', data);
