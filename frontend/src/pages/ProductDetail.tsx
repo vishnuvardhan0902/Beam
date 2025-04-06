@@ -5,26 +5,28 @@ import Footer from '../components/Footer';
 import ProductCard from '../components/ProductCard';
 import { getProductDetails, getProducts } from '../services/api';
 import { useCart } from '../context/CartContext';
+import { useAuthContext } from '../context/AuthContext';
+import PriceForecastChart from '../components/PriceForecastChart';
 
 // Product interface
 interface Product {
   id: string;
-  _id?: string;
+  _id: string;
   name: string;
   price: number;
   rating: number;
   reviewCount?: number;
   numReviews?: number;
   description: string;
-  features: string[];
-  colors: { name: string; value: string }[];
   images: string[];
   inStock: boolean;
-  category?: string;
-  brand?: string;
-  countInStock?: number;
-  image?: string;
-  user?: string; // Seller/creator ID
+  category: string;
+  brand: string;
+  countInStock: number;
+  image: string;
+  user: string;
+  features: string[];
+  colors: { name: string; value: string }[];
 }
 
 const ProductDetail: React.FC = () => {
@@ -56,46 +58,58 @@ const ProductDetail: React.FC = () => {
             _id: data._id,
             name: data.name,
             price: data.price,
-            rating: data.rating,
-            reviewCount: data.numReviews,
-            numReviews: data.numReviews,
-            description: data.description,
+            rating: data.rating || 0,
+            reviewCount: data.numReviews || 0,
+            numReviews: data.numReviews || 0,
+            description: data.description || '',
+            images: data.images?.length ? data.images : ['https://via.placeholder.com/300'],
+            inStock: (data.countInStock || 0) > 0,
+            category: data.category || '',
+            brand: data.brand || '',
+            countInStock: data.countInStock || 0,
+            image: data.images && data.images.length > 0 ? data.images[0] : 'https://via.placeholder.com/300',
+            user: data.user || '', 
             features: data.features || [],
             colors: data.colors?.map((c: any) => ({ name: c.name, value: c.value })) || 
                     [{ name: 'Default', value: 'gray' }],
-            images: data.images?.length ? data.images : ['https://via.placeholder.com/300'],
-            inStock: data.countInStock > 0,
-            category: data.category,
-            brand: data.brand,
-            countInStock: data.countInStock,
-            image: data.images && data.images.length > 0 ? data.images[0] : undefined,
-            user: data.user // This is the seller ID
           };
           
           setProduct(formattedProduct);
-          if (formattedProduct.colors.length > 0) {
+          if (formattedProduct.colors && formattedProduct.colors.length > 0) {
             setSelectedColor(formattedProduct.colors[0].value);
           }
           
           // Fetch related products (products in the same category)
-          const allProducts = await getProducts();
-          const related = allProducts.products
-            .filter((p: any) => p._id !== id && p.category === data.category)
-            .slice(0, 4)
-            .map((p: any) => ({
-              id: p._id,
-              _id: p._id,
-              name: p.name,
-              price: p.price,
-              image: p.images && p.images.length > 0 ? p.images[0] : undefined,
-              images: p.images,
-              category: p.category,
-              rating: p.rating,
-              reviewCount: p.numReviews,
-              numReviews: p.numReviews
-            }));
-            
-          setRelatedProducts(related);
+          const fetchRelatedProducts = async () => {
+            try {
+              const response = await getProducts({ 
+                limit: 4, 
+                category: formattedProduct.category 
+              });
+              const filtered = response.products
+                .filter((p: any) => p._id !== formattedProduct._id)
+                .slice(0, 4)
+                .map((p: any) => ({
+                  id: p._id,
+                  _id: p._id,
+                  name: p.name,
+                  price: p.price,
+                  image: p.images && p.images.length > 0 ? p.images[0] : 'https://via.placeholder.com/300',
+                  images: p.images || ['https://via.placeholder.com/300'],
+                  category: p.category,
+                  rating: p.rating || 0,
+                  reviewCount: p.numReviews || 0,
+                  numReviews: p.numReviews || 0,
+                  description: p.description || '',
+                  inStock: (p.countInStock || 0) > 0
+                }) as Product);
+              setRelatedProducts(filtered);
+            } catch (error) {
+              console.error('Error fetching related products:', error);
+            }
+          };
+          
+          fetchRelatedProducts();
         }
         setLoading(false);
       } catch (err) {
@@ -266,13 +280,13 @@ const ProductDetail: React.FC = () => {
                 </div>
               </div>
               
-              {product.colors.length > 0 && (
+              {product.colors?.length > 0 && (
                 <div className="mb-8">
                   <h3 className="text-sm font-medium text-gray-900">Color</h3>
                   
                   <div className="mt-2">
                     <div className="flex items-center space-x-3">
-                      {product.colors.map((color) => (
+                      {product.colors?.map((color) => (
                         <button
                           key={color.value}
                           onClick={() => setSelectedColor(color.value)}
@@ -335,13 +349,13 @@ const ProductDetail: React.FC = () => {
                 )}
               </div>
               
-              {product.features.length > 0 && (
+              {product.features?.length > 0 && (
                 <div className="mt-8 border-t border-gray-200 pt-8">
                   <h3 className="text-lg font-medium text-gray-900">Features</h3>
                   
                   <div className="mt-4 prose prose-sm text-gray-500">
                     <ul className="list-disc pl-5 space-y-2">
-                      {product.features.map((feature, index) => (
+                      {product.features?.map((feature, index) => (
                         <li key={index}>{feature}</li>
                       ))}
                     </ul>
@@ -361,6 +375,54 @@ const ProductDetail: React.FC = () => {
               </div>
             </div>
           </div>
+          
+          {/* Price Forecast Chart */}
+          {product._id && (
+            <div className="mt-16 border-t border-gray-200 pt-10">
+              <PriceForecastChart product={{
+                _id: product._id,
+                name: product.name,
+                price: product.price,
+                category: product.category,
+                brand: product.brand,
+                description: product.description,
+                features: product.features,
+                countInStock: product.countInStock
+              }} />
+            </div>
+          )}
+          
+          {/* Similar Products */}
+          {product._id && (
+            <div className="mt-16 border-t border-gray-200 pt-10">
+              <h2 className="text-2xl font-bold text-gray-900">You might also like</h2>
+              <div className="mt-6 grid grid-cols-1 gap-y-10 gap-x-6 sm:grid-cols-2 lg:grid-cols-4">
+                {relatedProducts.map((relatedProduct) => (
+                  <div key={relatedProduct.id} className="group relative">
+                    <div className="aspect-w-1 aspect-h-1 rounded-md overflow-hidden group-hover:opacity-75">
+                      <img
+                        src={relatedProduct.image || 'https://via.placeholder.com/300'}
+                        alt={relatedProduct.name}
+                        className="w-full h-full object-center object-cover"
+                      />
+                    </div>
+                    <div className="mt-4 flex justify-between">
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-900">
+                          <Link to={`/product/${relatedProduct.id}`}>
+                            <span aria-hidden="true" className="absolute inset-0" />
+                            {relatedProduct.name}
+                          </Link>
+                        </h3>
+                        <p className="mt-1 text-sm text-gray-500">{relatedProduct.category}</p>
+                      </div>
+                      <p className="text-sm font-medium text-gray-900">${relatedProduct.price.toFixed(2)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           
           {/* Reviews Section */}
           <div className="mt-16 border-t border-gray-200 pt-10">
@@ -419,19 +481,6 @@ const ProductDetail: React.FC = () => {
               </button>
             </div>
           </div>
-          
-          {/* Related Products */}
-          {relatedProducts.length > 0 && (
-            <div className="mt-16 border-t border-gray-200 pt-10">
-              <h2 className="text-2xl font-bold text-gray-900">You might also like</h2>
-              
-              <div className="mt-6 grid grid-cols-1 gap-y-10 gap-x-6 sm:grid-cols-2 lg:grid-cols-4">
-                {relatedProducts.map((relatedProduct) => (
-                  <ProductCard key={relatedProduct.id} product={relatedProduct} />
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
       

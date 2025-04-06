@@ -25,9 +25,17 @@ api.interceptors.request.use(
 // API service functions
 
 // Products
-export const getProducts = async (keyword = '', pageNumber = '') => {
+export const getProducts = async (params = {}) => {
   try {
-    const { data } = await api.get(`/products?keyword=${keyword}&pageNumber=${pageNumber}`);
+    const { keyword = '', pageNumber = '', limit = 10, category = '' } = params;
+    const queryParams = new URLSearchParams();
+    
+    if (keyword) queryParams.append('keyword', keyword);
+    if (pageNumber) queryParams.append('pageNumber', pageNumber);
+    if (limit) queryParams.append('limit', limit);
+    if (category) queryParams.append('category', category);
+    
+    const { data } = await api.get(`/products?${queryParams.toString()}`);
     return data;
   } catch (error) {
     throw error.response?.data?.message || error.message;
