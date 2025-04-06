@@ -111,14 +111,14 @@ const LandingPage: React.FC = () => {
         
         // Fetch all products without pagination
         // We'll get all pages of products by requesting a large page size
-        const allProductsData = await getProducts('', '1') as ProductsApiResponse;
+        const allProductsData = await getProducts({ pageNumber: '1', limit: '100' }) as ProductsApiResponse;
         let allProducts = [...allProductsData.products];
         
         // If there are multiple pages, fetch them all
         if (allProductsData.pages > 1) {
           const fetchPromises = [];
           for (let i = 2; i <= allProductsData.pages; i++) {
-            fetchPromises.push(getProducts('', i.toString()));
+            fetchPromises.push(getProducts({ pageNumber: i.toString(), limit: '100' }));
           }
           
           const results = await Promise.all(fetchPromises);
@@ -133,12 +133,12 @@ const LandingPage: React.FC = () => {
           _id: product._id,
           name: product.name,
           price: product.price,
-          category: product.category,
-          description: product.description,
+          category: product.category || 'Uncategorized',
+          description: product.description || '',
           image: product.images && product.images.length > 0 ? product.images[0] : undefined,
-          images: product.images,
-          rating: product.rating,
-          numReviews: product.numReviews
+          images: product.images || [],
+          rating: product.rating || 0,
+          numReviews: product.numReviews || 0
         })).slice(0, 6); // Limit to 6 products
         
         setFeaturedProducts(formattedProducts);

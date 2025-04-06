@@ -24,21 +24,22 @@ api.interceptors.request.use(
 
 // API service functions
 
-// Products
+// Define types for params
 export const getProducts = async (params = {}) => {
   try {
-    const { keyword = '', pageNumber = '', limit = 10, category = '' } = params;
+    const { keyword = '', pageNumber = '', limit = 18 } = params;
     const queryParams = new URLSearchParams();
     
     if (keyword) queryParams.append('keyword', keyword);
     if (pageNumber) queryParams.append('pageNumber', pageNumber);
-    if (limit) queryParams.append('limit', limit);
-    if (category) queryParams.append('category', category);
+    if (limit) queryParams.append('limit', limit.toString());
     
     const { data } = await api.get(`/products?${queryParams.toString()}`);
+    console.log('Fetched products from MongoDB:', data);
     return data;
   } catch (error) {
-    throw error.response?.data?.message || error.message;
+    console.error('Error fetching products:', error);
+    throw error.response?.data?.message || error.message || 'Failed to fetch products';
   }
 };
 

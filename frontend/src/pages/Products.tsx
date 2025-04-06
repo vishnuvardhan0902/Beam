@@ -13,10 +13,14 @@ interface Product {
   price: number;
   category: string;
   image?: string;
-  images?: string[];
+  images: string[];
   rating: number;
   reviewCount?: number;
   numReviews?: number;
+  brand?: string;
+  colors?: { name: string; value: string }[];
+  features?: string[];
+  sales?: number;
 }
 
 const Products: React.FC = () => {
@@ -53,24 +57,33 @@ const Products: React.FC = () => {
     const fetchProducts = async () => {
       try {
         setLoading(true);
-        const data = await getProducts(searchKeyword, page.toString(), productsPerPage.toString());
+        const params = {
+          keyword: searchKeyword,
+          pageNumber: page.toString(),
+          limit: productsPerPage.toString()
+        };
+        const data = await getProducts(params);
         // Transform backend data to match our interface
         const formattedProducts = data.products.map((product: any) => ({
           id: product._id,
           _id: product._id,
           name: product.name,
           price: product.price,
-          category: product.category,
+          category: product.category || 'Uncategorized',
           image: product.images && product.images.length > 0 ? product.images[0] : undefined,
-          images: product.images,
-          rating: product.rating,
-          reviewCount: product.numReviews,
-          numReviews: product.numReviews
+          images: product.images || [],
+          rating: product.rating || 0,
+          reviewCount: product.numReviews || 0,
+          numReviews: product.numReviews || 0,
+          brand: product.brand || '',
+          colors: product.colors || [],
+          features: product.features || [],
+          sales: product.sales || 0
         }));
         setProducts(formattedProducts);
         setTotalPages(data.pages);
         setLoading(false);
-      } catch (err) {
+      } catch (err: any) {
         setError(typeof err === 'string' ? err : 'Failed to load products');
         setLoading(false);
       }
@@ -84,24 +97,33 @@ const Products: React.FC = () => {
     const fetchAllProducts = async () => {
       try {
         // Use a large number to get all products
-        const data = await getProducts(searchKeyword, '1', '1000');
+        const params = {
+          keyword: searchKeyword,
+          pageNumber: '1',
+          limit: '1000'
+        };
+        const data = await getProducts(params);
         const formattedProducts = data.products.map((product: any) => ({
           id: product._id,
           _id: product._id,
           name: product.name,
           price: product.price,
-          category: product.category,
+          category: product.category || 'Uncategorized',
           image: product.images && product.images.length > 0 ? product.images[0] : undefined,
-          images: product.images,
-          rating: product.rating,
-          reviewCount: product.numReviews,
-          numReviews: product.numReviews
+          images: product.images || [],
+          rating: product.rating || 0,
+          reviewCount: product.numReviews || 0,
+          numReviews: product.numReviews || 0,
+          brand: product.brand || '',
+          colors: product.colors || [],
+          features: product.features || [],
+          sales: product.sales || 0
         }));
         setAllProducts(formattedProducts);
         
         // Set min and max price from all products
         if (formattedProducts.length > 0) {
-          const prices = formattedProducts.map(p => p.price);
+          const prices = formattedProducts.map((p: Product) => p.price);
           setMinPrice(Math.floor(Math.min(...prices)));
           setMaxPrice(Math.ceil(Math.max(...prices)));
           setPriceRange([Math.floor(Math.min(...prices)), Math.ceil(Math.max(...prices))]);
@@ -556,6 +578,7 @@ const Products: React.FC = () => {
                           title={product.name}
                           price={product.price}
                           image={product.image}
+                          images={product.images}
                           category={product.category}
                           rating={product.rating}
                           reviewCount={product.reviewCount || product.numReviews || 0}
