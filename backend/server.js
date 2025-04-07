@@ -21,7 +21,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:4000'],  // Add all your frontend URLs
+  origin: ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5001', 'https://beam-frontend.onrender.com'],  // Add all your frontend URLs
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -66,18 +66,19 @@ app.get('/', (req, res) => {
   res.send('API is running on port ' + process.env.PORT);
 });
 
-// Serve static assets if in production
-if (process.env.NODE_ENV === 'production') {
-  // Set static folder
-  app.use(express.static(path.join(__dirname, '../frontend/dist')));
+// Serve static assets in both production and development
+// Set static folder
+app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
-  // Any route that is not API will be redirected to index.html
-  app.get('*', (req, res) =>
-    res.sendFile(path.resolve(__dirname, '../frontend', 'dist', 'index.html'))
-  );
-} else {
-  console.log('Running in development mode');
-}
+// Any route that is not API will be redirected to index.html
+app.get('*', (req, res, next) => {
+  // Only redirect non-API routes to frontend
+  if (!req.path.startsWith('/api/')) {
+    res.sendFile(path.resolve(__dirname, '../frontend', 'dist', 'index.html'));
+  } else {
+    next();
+  }
+});
 
 // Error handling middleware
 app.use(notFound);
