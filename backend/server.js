@@ -21,7 +21,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5001', 'https://beam-frontend.onrender.com'],  // Add all your frontend URLs
+  origin: ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5001', 'https://beam-frontend.onrender.com', 'https://beam-shopping.onrender.com'],  // Add all your frontend URLs
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
