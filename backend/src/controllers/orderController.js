@@ -1,8 +1,8 @@
 const asyncHandler = require('express-async-handler');
-const Order = require('../models/Order');
-const Product = require('../models/Product');
-const SellerSales = require('../models/SellerSales');
-const User = require('../models/User');
+const Order = require('../models/orderModel');
+const Product = require('../models/productModel');
+const SellerSales = require('../models/sellerSalesModel');
+const User = require('../models/userModel');
 
 // @desc    Create new order
 // @route   POST /api/orders

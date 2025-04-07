@@ -1,13 +1,7 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, browserPopupRedirectResolver } from 'firebase/auth';
 
-// Log environment variables for debugging
-console.log('Firebase Config Environment Variables:');
-console.log('API Key exists:', !!import.meta.env.VITE_FIREBASE_API_KEY);
-console.log('Auth Domain exists:', !!import.meta.env.VITE_FIREBASE_AUTH_DOMAIN);
-console.log('Project ID exists:', !!import.meta.env.VITE_FIREBASE_PROJECT_ID);
-
-// Firebase configuration using environment variables
+// Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -18,14 +12,29 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-console.log('Initializing Firebase with config:', firebaseConfig);
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 
-// Configure Google provider
-googleProvider.setCustomParameters({
-  prompt: 'select_account'
-});
+// Function to sign in with Google
+export const signInWithGoogle = async () => {
+  try {
+    // Use browserPopupRedirectResolver to handle popup blocks
+    const result = await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
+    const user = result.user;
+    return {
+      googleId: user.uid,
+      email: user.email,
+      name: user.displayName,
+      avatar: user.photoURL
+    };
+  } catch (error) {
+    console.error('Error signing in with Google:', error);
+    if (error.code === 'auth/popup-blocked') {
+      throw new Error('Please allow popups for this website to sign in with Google');
+    }
+    throw error;
+  }
+};
 
-export { auth, googleProvider }; 
+export { auth }; 

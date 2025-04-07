@@ -1,37 +1,34 @@
-const jwt = require('jsonwebtoken');
 const asyncHandler = require('express-async-handler');
-const User = require('../models/User');
+const User = require('../models/userModel');
 
-// Middleware to protect routes - verifies the JWT token
+// Middleware to protect routes - checks if user exists
 const protect = asyncHandler(async (req, res, next) => {
-  let token;
-
-  // Check for token in Authorization header
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith('Bearer')
-  ) {
-    try {
-      // Get token from header
-      token = req.headers.authorization.split(' ')[1];
-
-      // Verify token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-      // Get user from the token
-      req.user = await User.findById(decoded.id).select('-password');
-
-      next();
-    } catch (error) {
-      console.error(error);
-      res.status(401);
-      throw new Error('Not authorized, token failed');
-    }
-  }
-
-  if (!token) {
+  console.log('Headers received:', req.headers);
+  const userId = req.headers['user-id'];
+  
+  if (!userId) {
+    console.log('No user ID provided in headers');
     res.status(401);
-    throw new Error('Not authorized, no token');
+    throw new Error('Not authorized, no user ID provided');
+  }
+  
+  console.log(`Authenticating user with ID: ${userId}`);
+  try {
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      console.log(`User not found with ID: ${userId}`);
+      res.status(401);
+      throw new Error('Not authorized, user not found');
+    }
+    
+    console.log(`User authenticated: ${user.name}`);
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error(`Error in protect middleware: ${error.message}`);
+    res.status(401);
+    throw new Error(`Not authorized: ${error.message}`);
   }
 });
 
@@ -45,7 +42,7 @@ const admin = (req, res, next) => {
   }
 };
 
-// Seller middleware - check if user is a seller
+// Middleware to verify if user is a seller
 const sellerAuth = (req, res, next) => {
   if (req.user && req.user.isSeller) {
     next();

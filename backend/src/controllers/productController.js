@@ -1,6 +1,6 @@
 const asyncHandler = require('express-async-handler');
-const Product = require('../models/Product');
-const SellerSales = require('../models/SellerSales');
+const Product = require('../models/productModel');
+const SellerSales = require('../models/sellerSalesModel');
 const mongoose = require('mongoose');
 
 // @desc    Fetch all products

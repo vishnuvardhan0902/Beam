@@ -1,5 +1,4 @@
 const express = require('express');
-const router = express.Router();
 const {
   authUser,
   registerUser,
@@ -11,13 +10,22 @@ const {
   updateUser,
   googleAuth,
   updateUserCart,
+  getUserCart,
 } = require('../controllers/userController');
 const { protect, admin } = require('../middleware/authMiddleware');
+
+const router = express.Router();
 
 // Public routes
 router.route('/').post(registerUser).get(protect, admin, getUsers);
 router.post('/login', authUser);
 router.post('/google', googleAuth);
+router.post('/google-login', googleAuth);
+
+// Add the cart route first (specific routes should come before parameterized routes)
+router.route('/cart')
+  .get(protect, getUserCart)
+  .put(protect, updateUserCart);
 
 // Private routes (require authentication)
 router
@@ -31,8 +39,5 @@ router
   .delete(protect, admin, deleteUser)
   .get(protect, admin, getUserById)
   .put(protect, admin, updateUser);
-
-// Add the new route
-router.put('/cart', protect, updateUserCart);
 
 module.exports = router; 

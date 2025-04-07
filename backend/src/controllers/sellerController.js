@@ -1,8 +1,8 @@
 const asyncHandler = require('express-async-handler');
-const Product = require('../models/Product');
-const Order = require('../models/Order');
-const User = require('../models/User');
-const SellerSales = require('../models/SellerSales');
+const Product = require('../models/productModel');
+const Order = require('../models/orderModel');
+const User = require('../models/userModel');
+const SellerSales = require('../models/sellerSalesModel');
 
 // @desc    Get seller dashboard data (summary statistics)
 // @route   GET /api/sellers/dashboard

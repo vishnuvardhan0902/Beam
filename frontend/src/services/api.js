@@ -1,493 +1,614 @@
+// Type definitions for frontend/src/services/api.js
+
+/* 
+UserInfo {
+  _id: string
+  name: string
+  email: string
+  isAdmin: boolean
+  token: string
+}
+
+Product {
+  _id: string
+  name: string
+  price: number
+  category: string
+  description: string (optional)
+  images: string[] (optional)
+  rating: number
+  numReviews: number
+  countInStock: number
+}
+
+ProductsApiResponse {
+  products: Product[]
+  pages: number
+  page: number
+}
+
+Address {
+  _id: string
+  name: string
+  addressLine1: string
+  addressLine2: string (optional)
+  city: string
+  state: string
+  postalCode: string
+  country: string
+  isDefault: boolean
+}
+
+PaymentMethod {
+  _id: string
+  cardType: string
+  cardName: string
+  lastFourDigits: string
+  expiryMonth: string
+  expiryYear: string
+  isDefault: boolean
+}
+*/
+
+// API service for frontend/src/services/api.js
 import axios from 'axios';
 
-// Create an axios instance with base URL and default headers
-const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001/api';
+const API_URL = import.meta.env.VITE_BACKEND_URL;
 
 const api = axios.create({
   baseURL: API_URL,
   headers: {
-    'Content-Type': 'application/json',
-  },
+    'Content-Type': 'application/json'
+  }
 });
 
-// Add request interceptor to include the auth token in all requests
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-// API service functions
-
-// Define types for params
-export const getProducts = async (params = {}) => {
-  try {
-    const { keyword = '', pageNumber = '', limit = 18, category = '' } = params;
-    const queryParams = new URLSearchParams();
-    
-    if (keyword) queryParams.append('keyword', keyword);
-    if (pageNumber) queryParams.append('pageNumber', pageNumber);
-    if (limit) queryParams.append('limit', limit.toString());
-    if (category) queryParams.append('category', category);
-    
-    const { data } = await api.get(`/products?${queryParams.toString()}`);
-    console.log('Fetched products from MongoDB:', data);
-    return data;
-  } catch (error) {
-    console.error('Error fetching products:', error);
-    throw error.response?.data?.message || error.message || 'Failed to fetch products';
-  }
-};
-
-export const getProductDetails = async (id) => {
-  try {
-    const { data } = await api.get(`/products/${id}`);
-    return data;
-  } catch (error) {
-    throw error.response?.data?.message || error.message;
-  }
-};
-
-export const getTopProducts = async () => {
-  try {
-    const { data } = await api.get('/products/top');
-    return data;
-  } catch (error) {
-    throw error.response?.data?.message || error.message;
-  }
-};
-
-// Auth
-export const login = async (email, password) => {
-  try {
-    const { data } = await api.post('/auth/login', { email, password });
-    if (data.token) {
-      localStorage.setItem('userInfo', JSON.stringify(data));
-      localStorage.setItem('token', data.token);
-      api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
-    }
-    return data;
-  } catch (error) {
-    const message = error.response?.data?.message || error.message || 'Login failed';
-    throw new Error(message);
-  }
-};
-
-export const googleLogin = async (googleData) => {
-  try {
-    // Log the data being sent
-    console.log('Sending Google data to backend:', googleData);
-    
-    const { data } = await api.post('/users/google', {
-      googleId: googleData.googleId,
-      email: googleData.email,
-      name: googleData.name,
-      avatar: googleData.avatar,
-    });
-    
-    console.log('Received response from backend:', data);
-    
-    if (data.token) {
-      localStorage.setItem('userInfo', JSON.stringify(data));
-      localStorage.setItem('token', data.token);
-      api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
-    }
-    return data;
-  } catch (error) {
-    console.error('Google auth API error:', error);
-    const message = error.response?.data?.message || error.message || 'Google login failed';
-    throw new Error(message);
-  }
-};
-
-export const register = async (name, email, password) => {
-  try {
-    const { data } = await api.post('/auth/register', { name, email, password });
-    if (data.token) {
-      localStorage.setItem('userInfo', JSON.stringify(data));
-      localStorage.setItem('token', data.token);
-      api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
-    }
-    return data;
-  } catch (error) {
-    const message = error.response?.data?.message || error.message || 'Registration failed';
-    throw new Error(message);
-  }
-};
-
-export const logout = () => {
-  localStorage.removeItem('userInfo');
-  localStorage.removeItem('token');
-  delete api.defaults.headers.common['Authorization'];
-  // Don't clear cart items on logout as we want them to persist
-  // localStorage.removeItem('cartItems');
-  localStorage.removeItem('shippingAddress');
-  localStorage.removeItem('paymentMethod');
-};
-
-export const getUserProfile = async () => {
-  try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      console.log('No token found, skipping profile fetch');
-      return null;
-    }
-    const { data } = await api.get('/users/profile');
-    return data;
-  } catch (error) {
-    console.error('Error fetching user profile:', error);
-    return null;
-  }
-};
-
-export const updateUserProfile = async (user) => {
-  try {
-    const { data } = await api.put('/users/profile', user);
-    localStorage.setItem('userInfo', JSON.stringify(data));
-    return data;
-  } catch (error) {
-    throw error.response?.data?.message || error.message;
-  }
-};
-
-// Addresses
-export const getUserAddresses = async () => {
-  try {
-    const { data } = await api.get('/users/addresses');
-    return data;
-  } catch (error) {
-    throw error.response?.data?.message || error.message;
-  }
-};
-
-export const addUserAddress = async (address) => {
-  try {
-    const { data } = await api.post('/users/addresses', address);
-    return data;
-  } catch (error) {
-    throw error.response?.data?.message || error.message;
-  }
-};
-
-export const updateUserAddress = async (addressId, address) => {
-  try {
-    const { data } = await api.put(`/users/addresses/${addressId}`, address);
-    return data;
-  } catch (error) {
-    throw error.response?.data?.message || error.message;
-  }
-};
-
-export const deleteUserAddress = async (addressId) => {
-  try {
-    const { data } = await api.delete(`/users/addresses/${addressId}`);
-    return data;
-  } catch (error) {
-    throw error.response?.data?.message || error.message;
-  }
-};
-
-export const setDefaultAddress = async (addressId) => {
-  try {
-    const { data } = await api.put(`/users/addresses/${addressId}/default`);
-    return data;
-  } catch (error) {
-    throw error.response?.data?.message || error.message;
-  }
-};
-
-// Payment Methods
-export const getUserPaymentMethods = async () => {
-  try {
-    const { data } = await api.get('/users/payment-methods');
-    return data;
-  } catch (error) {
-    throw error.response?.data?.message || error.message;
-  }
-};
-
-export const addUserPaymentMethod = async (paymentMethod) => {
-  try {
-    const { data } = await api.post('/users/payment-methods', paymentMethod);
-    return data;
-  } catch (error) {
-    throw error.response?.data?.message || error.message;
-  }
-};
-
-export const updateUserPaymentMethod = async (paymentMethodId, paymentMethod) => {
-  try {
-    const { data } = await api.put(`/users/payment-methods/${paymentMethodId}`, paymentMethod);
-    return data;
-  } catch (error) {
-    throw error.response?.data?.message || error.message;
-  }
-};
-
-export const deleteUserPaymentMethod = async (paymentMethodId) => {
-  try {
-    const { data } = await api.delete(`/users/payment-methods/${paymentMethodId}`);
-    return data;
-  } catch (error) {
-    throw error.response?.data?.message || error.message;
-  }
-};
-
-export const setDefaultPaymentMethod = async (paymentMethodId) => {
-  try {
-    const { data } = await api.put(`/users/payment-methods/${paymentMethodId}/default`);
-    return data;
-  } catch (error) {
-    throw error.response?.data?.message || error.message;
-  }
-};
-
-// Cart
-export const updateUserCart = async (cartItems) => {
-  try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      console.log('No token found, skipping cart update');
-      return [];
-    }
-
-    const { data } = await api.put('/users/profile', { 
-      cart: cartItems 
-    });
-    return data.cart || [];
-  } catch (error) {
-    console.error('Error updating cart:', error);
-    // Don't throw the error, just log it and return empty array
-    // This prevents the app from crashing when there are auth issues
-    return [];
-  }
-};
-
-// Get user cart safely
-export const getUserCart = async () => {
-  try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      console.log('No token found, skipping cart fetch');
-      return [];
-    }
-    
-    const { data } = await api.get('/users/profile');
-    return data.cart || [];
-  } catch (error) {
-    console.error('Error fetching user cart:', error);
-    // Don't throw the error, just log it and return empty array
-    return [];
-  }
-};
-
-// Orders
-export const createOrder = async (order) => {
-  try {
-    // Ensure all required fields are present
-    const processedOrder = {
-      ...order,
-      orderItems: order.orderItems.map(item => ({
-        ...item,
-        // Ensure required fields exist
-        qty: item.qty || item.quantity || 1,
-        color: item.color || 'default'
-      }))
-    };
-    
-    const { data } = await api.post('/orders', processedOrder);
-    return data;
-  } catch (error) {
-    console.error('Error creating order:', error);
-    throw error.response?.data?.message || error.message;
-  }
-};
-
-export const getOrderDetails = async (id) => {
-  try {
-    const { data } = await api.get(`/orders/${id}`);
-    return data;
-  } catch (error) {
-    throw error.response?.data?.message || error.message;
-  }
-};
-
-export const payOrder = async (orderId, paymentResult) => {
-  try {
-    const { data } = await api.put(`/orders/${orderId}/pay`, paymentResult);
-    console.log('Order marked as paid:', data);
-    return data;
-  } catch (error) {
-    console.error('Error marking order as paid:', error);
-    throw error.response?.data?.message || error.message;
-  }
-};
-
-export const listMyOrders = async () => {
-  try {
-    const { data } = await api.get('/orders/myorders');
-    return data;
-  } catch (error) {
-    throw error.response?.data?.message || error.message;
-  }
-};
-
-// Seller API functions
-export const getSellerProducts = async () => {
-  try {
-    const { data } = await api.get('/products/seller');
-    return data;
-  } catch (error) {
-    throw error.response?.data?.message || error.message;
-  }
-};
-
-export const createProduct = async (productData) => {
-  try {
-    const { data } = await api.post('/products', productData, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    return data;
-  } catch (error) {
-    throw error.response?.data?.message || error.message;
-  }
-};
-
-export const updateProduct = async (id, productData) => {
-  try {
-    const { data } = await api.put(`/products/${id}`, productData, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    return data;
-  } catch (error) {
-    throw error.response?.data?.message || error.message;
-  }
-};
-
-export const deleteProduct = async (id) => {
-  try {
-    const { data } = await api.delete(`/products/${id}`);
-    return data;
-  } catch (error) {
-    throw error.response?.data?.message || error.message;
-  }
-};
-
-export const getSellerOrders = async () => {
-  try {
-    const { data } = await api.get('/orders/seller');
-    return data;
-  } catch (error) {
-    throw error.response?.data?.message || error.message;
-  }
-};
-
-export const getSellerDashboardData = async () => {
-  try {
-    const { data } = await api.get('/sellers/dashboard');
-    return data;
-  } catch (error) {
-    throw error.response?.data?.message || error.message;
-  }
-};
-
-export const getSellerSales = async (period = 'monthly') => {
-  try {
-    const { data } = await api.get(`/sellers/sales?period=${period}`);
-    return data;
-  } catch (error) {
-    throw error.response?.data?.message || error.message;
-  }
-};
-
-export const getSellerSalesHistory = async (page = 1, limit = 50) => {
-  try {
-    const { data } = await api.get(`/sellers/sales-history?page=${page}&limit=${limit}`);
-    return data;
-  } catch (error) {
-    throw error.response?.data?.message || error.message;
-  }
-};
-
-// Get optimized price recommendation from Gemini API
-export const getOptimizedPrice = async (productDetails) => {
-  try {
-    const geminiEndpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=";
-    const geminiApiKey = "AIzaSyC_uXWIh-_J0xOZq9MGtS9pMy5a0zEZXNo";
-    
-    const payload = {
-      contents: [
-        {
-          parts: [
-            {
-              text: `Based on the following product details, recommend an optimized price in USD that would be competitive in the market while maximizing profit potential. Format your response as a number only (e.g., 49.99).
-
-Product name: ${productDetails.name}
-Category: ${productDetails.category}
-Brand: ${productDetails.brand}
-Description: ${productDetails.description}
-Features: ${productDetails.features.join(', ')}
-Stock quantity: ${productDetails.countInStock}
-Current suggested price: ${productDetails.price || 0}
-`
-            }
-          ]
-        }
-      ],
-      generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 100
+// Add user ID to headers if available
+api.interceptors.request.use((config) => {
+  const userInfo = localStorage.getItem('userInfo');
+  if (userInfo) {
+    try {
+      const userData = JSON.parse(userInfo);
+      if (userData && userData._id) {
+        console.log('Adding user ID to request headers:', userData._id);
+        config.headers['user-id'] = userData._id;
       }
-    };
+    } catch (error) {
+      console.error('Error parsing user info from localStorage:', error);
+    }
+  }
+  return config;
+});
 
-    console.log('Sending request to Gemini API:', payload);
+class ApiService {
+  static async login(credentials) {
+    try {
+      console.log('Login attempt with:', credentials);
+      const endpoint = credentials.googleId ? '/users/google' : '/users/login';
+      console.log('Using endpoint:', endpoint);
+      const response = await api.post(endpoint, credentials);
+      console.log('Login response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  static async register(userData) {
+    try {
+      console.log('Register attempt with:', userData);
+      const endpoint = userData.googleId ? '/users/google' : '/users';
+      console.log('Using endpoint:', endpoint);
+      const response = await api.post(endpoint, userData);
+      console.log('Register response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Register error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  static handleError(error) {
+    console.error('API Error:', error);
+    if (error.response) {
+      console.error('Error response:', error.response.data);
+      return new Error(error.response.data.message || 'An error occurred');
+    }
+    return new Error('Network error');
+  }
+}
+
+export default ApiService;
+
+// Request cache to prevent duplicate calls
+const apiCache = new Map();
+const cacheTTL = 60000; // 1 minute default TTL
+const pendingRequests = new Map();
+
+// Make sure we're not adding /api prefix twice
+const formatEndpoint = (endpoint) => {
+  // If the API_BASE_URL already includes '/api' and the endpoint starts with '/api', 
+  // remove the duplicate '/api' from the endpoint
+  if (API_URL.includes('/api') && endpoint.startsWith('/api')) {
+    return endpoint.replace('/api', '');
+  }
+  return endpoint;
+};
+
+// Enhanced fetch function with caching
+const fetchApi = async (endpoint, options = {}) => {
+  try {
+    // Add user ID and authorization token to headers if available
+  const headers = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+
+    const userInfo = localStorage.getItem('userInfo');
+    if (userInfo) {
+      try {
+        const userData = JSON.parse(userInfo);
+        if (userData && userData._id) {
+          console.log('Adding user ID to fetch request headers:', userData._id);
+          headers['user-id'] = userData._id;
+        }
+        if (userData && userData.token) {
+          console.log('Adding authorization token to fetch request headers');
+          headers['Authorization'] = `Bearer ${userData.token}`;
+        }
+      } catch (error) {
+        console.error('Error parsing user info from localStorage:', error);
+      }
+    }
     
-    const response = await fetch(`${geminiEndpoint}${geminiApiKey}`, {
+    console.log(`Making API request to: ${API_URL}${endpoint}`);
+    
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
+
+    // Check if response is OK
+    if (!response.ok) {
+      // Clone the response before reading it
+      const responseClone = response.clone();
+      
+      // Try to parse as JSON first
+      try {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      } catch (jsonError) {
+        // If not JSON, get text from the clone
+        try {
+          const text = await responseClone.text();
+          console.error('Non-JSON error response:', text);
+          throw new Error(`HTTP error! status: ${response.status}`);
+        } catch (textError) {
+          // If we can't read the text either, just throw a generic error
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+      }
+    }
+
+    // Check content type to determine how to parse
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return await response.json();
+    } else {
+      // Handle non-JSON responses
+    const text = await response.text();
+      console.warn('Received non-JSON response:', text);
+      throw new Error('Received non-JSON response from server');
+    }
+  } catch (error) {
+    console.error('API Error:', error);
+    throw error;
+  }
+};
+
+// User API calls
+export const getUserProfile = async () => {
+  const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+  if (!userInfo) {
+    throw new Error('Not logged in');
+  }
+  
+  return fetchApi('/users/profile');
+};
+
+export const updateUserProfile = async (userData) => {
+  const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+  if (!userInfo) {
+    throw new Error('Not logged in');
+  }
+  
+  return fetchApi('/users/profile', {
+    method: 'PUT',
+    body: JSON.stringify(userData),
+  });
+};
+
+// Product related functions
+export async function getProducts(params = {}) {
+  // Build query string from params
+  const queryParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) queryParams.append(key, value);
+  });
+  
+  const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+  return fetchApi(`/products${queryString}`);
+}
+
+export async function getProductDetails(id) {
+  // Handle case where id is an object
+  if (typeof id === 'object') {
+    console.warn('getProductDetails received object instead of string ID:', id);
+    id = id._id || id.id || id.productId;
+    
+    if (!id || typeof id !== 'string') {
+      console.error('Failed to extract valid ID from object:', id);
+      throw new Error('Invalid product ID');
+    }
+  }
+  
+  return fetchApi(`/products/${id}`);
+}
+
+export async function getTopProducts() {
+  return fetchApi('/products/top');
+}
+
+export async function createProduct(productData) {
+  return fetchApi('/products', {
+    method: 'POST',
+    body: JSON.stringify(productData),
+  });
+}
+
+export async function updateProduct(id, productData) {
+  return fetchApi(`/products/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(productData),
+  });
+}
+
+export async function deleteProduct(productId) {
+  return fetchApi(`/products/${productId}`, {
+    method: 'DELETE',
+  });
+}
+
+// Authentication and user related functions
+export async function googleLogin(googleData) {
+  console.log('Attempting Google login with data:', googleData);
+  try {
+    // Make sure to use properly formatted URL and avoid double /api prefixes
+    const endpoint = '/users/google-login';
+    const formattedEndpoint = formatEndpoint(endpoint);
+    const fullUrl = `${API_URL}${formattedEndpoint}`;
+    
+    console.log(`Making Google login request to: ${fullUrl}`);
+    
+    const response = await fetch(fullUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(googleData),
+    });
+
+    console.log(`Google login response status: ${response.status}`);
+    
+    // Get the response as text first
+    const responseText = await response.text();
+    console.log(`Google login response text: ${responseText.substring(0, 150)}...`);
+    
+    // Then parse it as JSON if possible
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('Error parsing JSON response:', parseError);
+      throw new Error(`Google login failed: Server returned invalid JSON. Status: ${response.status}`);
+    }
+
+    if (!response.ok) {
+      throw new Error(data.message || `Google login failed: Status ${response.status}`);
+      }
+      
+      return data;
+  } catch (error) {
+    console.error('Google login error:', error);
+    throw error;
+  }
+}
+
+export async function googleSignup(googleData) {
+  console.log('Attempting Google signup with data:', googleData);
+  try {
+    // Make sure to use properly formatted URL and avoid double /api prefixes
+    const endpoint = '/users/google';
+    const formattedEndpoint = formatEndpoint(endpoint);
+    const fullUrl = `${API_URL}${formattedEndpoint}`;
+    
+    console.log(`Making Google signup request to: ${fullUrl}`);
+    
+    const response = await fetch(fullUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(googleData),
+    });
+
+    console.log(`Google signup response status: ${response.status}`);
+    
+    // Get the response as text first
+    const responseText = await response.text();
+    console.log(`Google signup response text: ${responseText.substring(0, 150)}...`);
+    
+    // Then parse it as JSON if possible
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('Error parsing JSON response:', parseError);
+      throw new Error(`Google signup failed: Server returned invalid JSON. Status: ${response.status}`);
+    }
+
+    if (!response.ok) {
+      throw new Error(data.message || `Google signup failed: Status ${response.status}`);
+      }
+      
+      return data;
+  } catch (error) {
+    console.error('Google signup error:', error);
+    throw error;
+  }
+}
+
+// Address management functions
+export async function getUserAddresses() {
+  return fetchApi('/users/addresses');
+}
+
+export async function addUserAddress(address) {
+  return fetchApi('/users/addresses', {
+    method: 'POST',
+    body: JSON.stringify(address),
+  });
+}
+
+export async function updateUserAddress(addressId, address) {
+  return fetchApi(`/users/addresses/${addressId}`, {
+    method: 'PUT',
+    body: JSON.stringify(address),
+  });
+}
+
+export async function deleteUserAddress(addressId) {
+  return fetchApi(`/users/addresses/${addressId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function setDefaultAddress(addressId) {
+  return fetchApi(`/users/addresses/${addressId}/default`, {
+    method: 'PUT',
+  });
+}
+
+// Payment method management functions
+export async function getUserPaymentMethods() {
+  return fetchApi('/users/payment-methods');
+}
+
+export async function addUserPaymentMethod(paymentMethod) {
+  return fetchApi('/users/payment-methods', {
+    method: 'POST',
+    body: JSON.stringify(paymentMethod),
+  });
+}
+
+export async function updateUserPaymentMethod(paymentMethodId, paymentMethod) {
+  return fetchApi(`/users/payment-methods/${paymentMethodId}`, {
+    method: 'PUT',
+    body: JSON.stringify(paymentMethod),
+  });
+}
+
+export async function deleteUserPaymentMethod(paymentMethodId) {
+  return fetchApi(`/users/payment-methods/${paymentMethodId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function setDefaultPaymentMethod(paymentMethodId) {
+  return fetchApi(`/users/payment-methods/${paymentMethodId}/default`, {
+    method: 'PUT',
+  });
+}
+
+// Cart functions with optimized implementation
+export async function getUserCart() {
+  try {
+    // Get user ID from localStorage
+    const userInfo = localStorage.getItem('userInfo');
+    if (!userInfo) {
+      console.log('Skipping cart fetch - user not logged in');
+      return [];
+    }
+    
+    let userId;
+    try {
+      const userData = JSON.parse(userInfo);
+      userId = userData._id;
+      if (!userId) {
+        console.log('Skipping cart fetch - no user ID found');
+        return [];
+      }
+    } catch (error) {
+      console.error('Error parsing user info from localStorage:', error);
+      return [];
+    }
+    
+    // Check cache first
+    const cacheKey = 'user_cart';
+    const cachedCart = apiCache.get(cacheKey);
+    
+    if (cachedCart && Date.now() < cachedCart.expiry) {
+      console.log('Using cached cart data');
+      return cachedCart.data;
+    }
+    
+    // Skip API call if offline or if there have been too many recent errors
+    const errorCacheKey = `${formatEndpoint('/users/cart')}_error_count`;
+    const errorCount = parseInt(sessionStorage.getItem(errorCacheKey) || '0');
+    if (errorCount >= 3 && navigator.onLine === false) {
+      console.log('Offline or too many errors - using cached cart or empty array');
+      return cachedCart?.data || [];
+    }
+    
+    console.log('Fetching cart from server');
+    const data = await fetchApi('/users/cart', {
+      timeout: 3000 // Shorter timeout for cart requests
     });
     
-    const data = await response.json();
-    console.log('Gemini API response:', data);
+    // Process the data to ensure it matches our frontend format
+    const processedData = Array.isArray(data) ? data.map(item => ({
+      id: item.productId,
+      title: item.name || 'Product',
+      price: typeof item.price === 'number' ? item.price : 0,
+      image: item.image || '/placeholder.jpg',
+      quantity: typeof item.quantity === 'number' ? item.quantity : 1
+    })) : [];
     
-    if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
-      const priceText = data.candidates[0].content.parts[0].text.trim();
-      
-      // Try to extract just the number from the response
-      const priceMatch = priceText.match(/\$?(\d+\.?\d*)/);
-      if (priceMatch && priceMatch[1]) {
-        return parseFloat(priceMatch[1]);
-      }
-      
-      // If we can't extract a number pattern, try to parse the whole response
-      const parsedPrice = parseFloat(priceText);
-      if (!isNaN(parsedPrice)) {
-        return parsedPrice;
-      }
-      
-      // If all else fails, return the original price
-      console.log('Could not extract price from Gemini response');
-      return productDetails.price || 0;
-    } else {
-      console.error('Invalid response from Gemini API');
-      return productDetails.price || 0;
-    }
+    console.log('Received and processed cart data:', processedData);
+    
+    // Determine appropriate TTL based on cart size and contents
+    const isEmpty = !processedData || !processedData.length;
+    const ttl = isEmpty ? 30000 : 5000; // Longer TTL for empty carts
+    
+    // Cache the result with adaptive TTL
+    apiCache.set(cacheKey, {
+      data: processedData,
+      expiry: Date.now() + ttl
+    });
+    
+    return processedData;
   } catch (error) {
-    console.error('Error getting optimized price:', error);
-    return productDetails.price || 0; // Return original price on error
+    // For cart errors, we want to fail gracefully
+    console.error('Error fetching user cart:', error);
+    
+    // Return cached data if available, empty array otherwise
+    const cachedCart = apiCache.get('user_cart');
+    return cachedCart?.data || [];
   }
-};
+}
 
-export default api; 
+// Track last known cart state to enable differential updates
+let lastKnownCartState = null;
+
+export async function updateUserCart(cartItems) {
+  try {
+    // Skip update if cart is null or undefined
+    if (!cartItems) {
+      console.log('Skipping cart update - cart is null or undefined');
+      return { success: false };
+    }
+    
+    // Get user ID from localStorage
+    const userInfo = localStorage.getItem('userInfo');
+    if (!userInfo) {
+      console.log('Skipping cart update - user not logged in');
+      return { success: false, error: 'User not logged in' };
+    }
+    
+    // Ensure proper format for API
+    const cartItemsArray = Array.isArray(cartItems) ? cartItems : [];
+    
+    // Format cart items correctly for the backend - ensure all required fields
+    const formattedCartItems = cartItemsArray.map(item => {
+      // Handle productId - ensure it's a string
+      let productId = item.productId || item.id || 'unknown';
+      if (typeof productId === 'object') {
+        console.warn('productId is an object, converting to string:', productId);
+        productId = String(productId._id || productId.id || 'unknown');
+      }
+      
+      const formattedItem = {
+        productId: String(productId), // Ensure it's a string
+        name: item.name || item.title || 'Product',
+        price: typeof item.price === 'number' ? item.price : 0,
+        image: item.image || '/placeholder.jpg',
+        quantity: typeof item.quantity === 'number' ? item.quantity : 1
+      };
+      
+      // Ensure quantity is a number
+      if (typeof formattedItem.quantity !== 'number') {
+        formattedItem.quantity = 1;
+      }
+      
+      // Ensure price is a number
+      if (typeof formattedItem.price !== 'number') {
+        formattedItem.price = 0;
+      }
+      
+      return formattedItem;
+    });
+    
+    console.log('Sending cart update with items:', formattedCartItems);
+    
+    // Perform the update
+    const result = await fetchApi('/users/cart', {
+      method: 'PUT',
+      body: JSON.stringify({ cartItems: formattedCartItems })
+    });
+    
+    return result;
+  } catch (error) {
+    console.error('Error updating cart:', error);
+    throw error;
+  }
+}
+
+// Order related functions
+export async function listMyOrders() {
+  return fetchApi('/orders/myorders');
+}
+
+export async function getOrderDetails(id) {
+  return fetchApi(`/orders/${id}`);
+}
+
+export async function createOrder(orderData) {
+  return fetchApi('/orders', {
+    method: 'POST',
+    body: JSON.stringify(orderData),
+  });
+}
+
+export async function payOrder(orderId, paymentResult) {
+  return fetchApi(`/orders/${orderId}/pay`, {
+    method: 'PUT',
+    body: JSON.stringify(paymentResult),
+  });
+}
+
+// Seller related functions
+export async function getSellerProducts() {
+  return fetchApi('/products/seller');
+}
+
+export async function getSellerOrders() {
+  return fetchApi('/sellers/orders');
+}
+
+export async function getSellerDashboardData() {
+  return fetchApi('/sellers/dashboard');
+}
+
+export async function getSellerSales(period = 'weekly') {
+  return fetchApi(`/sellers/sales?period=${period}`);
+} 
