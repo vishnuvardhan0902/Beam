@@ -16,18 +16,44 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [tokenExpiry, setTokenExpiry] = useState(null);
+
+  // Check if token is expired
+  const isTokenExpired = () => {
+    if (!tokenExpiry) return false;
+    // Add a 5-minute buffer to prevent edge cases
+    return new Date(tokenExpiry).getTime() - 300000 < new Date().getTime();
+  };
+
+  // Set token expiry date based on JWT expiry (30 days from current time)
+  const setExpiryFromNow = () => {
+    const expiry = new Date();
+    expiry.setDate(expiry.getDate() + 30);
+    setTokenExpiry(expiry.toISOString());
+    localStorage.setItem('tokenExpiry', expiry.toISOString());
+  };
 
   // Check if user is logged in on initial load
   useEffect(() => {
     const userInfo = localStorage.getItem('userInfo');
+    const savedTokenExpiry = localStorage.getItem('tokenExpiry');
+    
     if (userInfo) {
       try {
         const parsedUser = JSON.parse(userInfo);
         console.log('Loading user from localStorage:', parsedUser.name);
         setUser(parsedUser);
+        
+        // Set token expiry if available or set a new one
+        if (savedTokenExpiry) {
+          setTokenExpiry(savedTokenExpiry);
+        } else {
+          setExpiryFromNow();
+        }
       } catch (err) {
         console.error('Error parsing user from localStorage:', err);
         localStorage.removeItem('userInfo');
+        localStorage.removeItem('tokenExpiry');
       }
     }
     setLoading(false);
@@ -43,6 +69,7 @@ export const AuthProvider = ({ children }) => {
       console.log('Login successful:', userData);
       setUser(userData);
       localStorage.setItem('userInfo', JSON.stringify(userData));
+      setExpiryFromNow();
       return userData;
     } catch (err) {
       console.error('Login error in AuthContext:', err);
@@ -67,6 +94,7 @@ export const AuthProvider = ({ children }) => {
       const userData = await ApiService.login(googleData);
       setUser(userData);
       localStorage.setItem('userInfo', JSON.stringify(userData));
+      setExpiryFromNow();
       return userData;
     } catch (err) {
       console.error('Google login error:', err);
@@ -87,6 +115,7 @@ export const AuthProvider = ({ children }) => {
       console.log('Registration successful:', newUser);
       setUser(newUser);
       localStorage.setItem('userInfo', JSON.stringify(newUser));
+      setExpiryFromNow();
       return newUser;
     } catch (err) {
       console.error('Registration error in AuthContext:', err);
@@ -111,6 +140,7 @@ export const AuthProvider = ({ children }) => {
       const userData = await ApiService.register(googleData);
       setUser(userData);
       localStorage.setItem('userInfo', JSON.stringify(userData));
+      setExpiryFromNow();
       return userData;
     } catch (err) {
       console.error('Google signup error:', err);
@@ -123,13 +153,35 @@ export const AuthProvider = ({ children }) => {
 
   // Logout
   const logout = () => {
+    // Clear user state
     setUser(null);
+    setTokenExpiry(null);
+    
+    // Clear all user-related data from localStorage
     localStorage.removeItem('userInfo');
+    localStorage.removeItem('tokenExpiry');
+    localStorage.removeItem('cartItems');
+    localStorage.removeItem('shippingAddress');
+    localStorage.removeItem('paymentMethod');
+    
+    // Clear any pending cart items
+    sessionStorage.removeItem('pendingCartItem');
+    sessionStorage.removeItem('redirectAfterLogin');
+    
+    // Clear socket connection if it exists
+    if (window.socket) {
+      window.socket.disconnect();
+      window.socket = null;
+    }
   };
 
   // Update user state
   const updateUserState = (userData) => {
     setUser(userData);
+    if (userData) {
+      localStorage.setItem('userInfo', JSON.stringify(userData));
+      setExpiryFromNow();
+    }
   };
 
   // Helper function to check if user is a seller
@@ -137,6 +189,9 @@ export const AuthProvider = ({ children }) => {
 
   // Helper function to check if user is an admin
   const isAdmin = user?.isAdmin || false;
+  
+  // Check if user is authenticated
+  const isAuthenticated = !!user && !isTokenExpired();
 
   const value = {
     user,
@@ -149,7 +204,9 @@ export const AuthProvider = ({ children }) => {
     logout,
     updateUserState,
     isSeller,
-    isAdmin
+    isAdmin,
+    isAuthenticated,
+    isTokenExpired
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 const userSchema = new mongoose.Schema(
   {
@@ -91,6 +92,21 @@ userSchema.methods.matchPassword = async function(enteredPassword) {
   } catch (error) {
     console.error('Error matching password:', error);
     return false;
+  }
+};
+
+// Generate JWT Token
+userSchema.methods.generateToken = function() {
+  try {
+    const token = jwt.sign(
+      { id: this._id, email: this.email },
+      process.env.JWT_SECRET || 'somesecrettoken',
+      { expiresIn: '30d' }
+    );
+    return token;
+  } catch (error) {
+    console.error('Error generating token:', error);
+    throw new Error('Could not generate authentication token');
   }
 };
 

@@ -12,6 +12,37 @@ const Orders = () => {
   const { user } = useAuthContext();
   const navigate = useNavigate();
   
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      console.log('Attempting to fetch orders...');
+      const data = await listMyOrders();
+      console.log('Orders fetched successfully:', data);
+      setOrders(data);
+      setLoading(false);
+    } catch (err) {
+      console.error('Error fetching orders:', err);
+      let errorMessage = err instanceof Error ? err.message : String(err);
+      
+      // Make errors more user-friendly
+      if (errorMessage.includes('Received non-JSON response')) {
+        errorMessage = 'Unable to connect to the orders service. Please try again later.';
+      } else if (errorMessage.includes('Not authorized')) {
+        errorMessage = 'Your session has expired. Please log in again.';
+        // Wait a moment before redirecting
+        setTimeout(() => {
+          navigate('/login?redirect=orders');
+        }, 1500);
+      } else if (errorMessage.includes('Network')) {
+        errorMessage = 'Network error. Please check your internet connection and try again.';
+      }
+      
+      setError(errorMessage);
+      setLoading(false);
+    }
+  };
+  
   useEffect(() => {
     // Check if user is logged in
     if (!user) {
@@ -19,28 +50,6 @@ const Orders = () => {
       navigate('/login?redirect=orders');
       return;
     }
-    
-    const fetchOrders = async () => {
-      try {
-        setLoading(true);
-        const data = await listMyOrders();
-        setOrders(data);
-        setLoading(false);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        setError(errorMessage);
-        setLoading(false);
-        
-        // Handle authentication errors
-        if (errorMessage.includes('Not authorized') || errorMessage.includes('session')) {
-          console.error('Authentication error fetching orders:', errorMessage);
-          // Wait a moment before redirecting to avoid too rapid redirects
-          setTimeout(() => {
-            navigate('/login?redirect=orders');
-          }, 1500);
-        }
-      }
-    };
     
     fetchOrders();
   }, [user, navigate]);
@@ -59,7 +68,10 @@ const Orders = () => {
       <div className="min-h-screen bg-gray-100">
         <Navbar />
         <div className="container mx-auto px-4 py-8">
-          <div className="text-center">Loading orders...</div>
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <p>Loading your orders...</p>
+          </div>
         </div>
         <Footer />
       </div>
@@ -71,7 +83,16 @@ const Orders = () => {
       <div className="min-h-screen bg-gray-100">
         <Navbar />
         <div className="container mx-auto px-4 py-8">
-          <div className="text-center text-red-600">{error}</div>
+          <div className="text-center bg-red-50 border border-red-200 rounded-lg p-6 max-w-lg mx-auto">
+            <h2 className="text-xl font-semibold text-red-700 mb-2">Error Loading Orders</h2>
+            <p className="text-red-600 mb-4">{error}</p>
+            <button 
+              onClick={fetchOrders}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
         </div>
         <Footer />
       </div>
@@ -85,7 +106,7 @@ const Orders = () => {
         <h1 className="text-3xl font-bold mb-8">My Orders</h1>
         
         {orders.length === 0 ? (
-          <div className="text-center py-8">
+          <div className="text-center py-8 bg-white rounded-lg shadow-sm p-6">
             <p className="text-gray-600 mb-4">You haven't placed any orders yet.</p>
             <Link
               to="/"
@@ -101,24 +122,39 @@ const Orders = () => {
                 key={order._id}
                 className="bg-white rounded-lg shadow-md p-6"
               >
-                <div className="flex justify-between items-start mb-4">
+                <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4 mb-4">
                   <div>
-                    <h2 className="text-xl font-semibold">Order #{order._id}</h2>
+                    <h2 className="text-xl font-semibold">
+                      <Link to={`/order/${order._id}`} className="text-blue-600 hover:underline">
+                        Order #{order._id}
+                      </Link>
+                    </h2>
                     <p className="text-gray-600">
                       Placed on {formatDate(order.createdAt)}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="font-semibold">Total: ${order.totalPrice}</p>
-                    <p
-                      className={`inline-block px-3 py-1 rounded-full text-sm ${
-                        order.isPaid
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}
-                    >
-                      {order.isPaid ? 'Paid' : 'Not Paid'}
-                    </p>
+                    <div className="flex flex-col gap-2 mt-2">
+                      <p
+                        className={`inline-block px-3 py-1 rounded-full text-sm text-center ${
+                          order.isPaid
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}
+                      >
+                        {order.isPaid ? 'Paid' : 'Not Paid'}
+                      </p>
+                      <p
+                        className={`inline-block px-3 py-1 rounded-full text-sm text-center ${
+                          order.isDelivered
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {order.isDelivered ? 'Delivered' : 'Not Delivered'}
+                      </p>
+                    </div>
                   </div>
                 </div>
                 
@@ -130,11 +166,24 @@ const Orders = () => {
                         key={item._id}
                         className="flex justify-between items-center"
                       >
-                        <div>
-                          <p className="font-medium">{item.name}</p>
-                          <p className="text-sm text-gray-600">
-                            Qty: {item.qty} x ${item.price}
-                          </p>
+                        <div className="flex items-center gap-3">
+                          <div className="flex-shrink-0 h-12 w-12 bg-gray-100 rounded-md overflow-hidden">
+                            <img 
+                              src={item.image} 
+                              alt={item.name} 
+                              className="h-full w-full object-cover"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = 'https://via.placeholder.com/150';
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <p className="font-medium">{item.name}</p>
+                            <p className="text-sm text-gray-600">
+                              Qty: {item.qty} x ${item.price}
+                            </p>
+                          </div>
                         </div>
                         <p className="font-medium">
                           ${(item.qty * item.price).toFixed(2)}

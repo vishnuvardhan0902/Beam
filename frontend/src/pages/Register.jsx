@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthContext } from '../context/AuthContext';
-import { signInWithGoogle } from '../config/firebase';
+import ApiService from '../services/api';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { FaGoogle } from "react-icons/fa";
+import { toast } from "react-toastify";
+import { useCart } from '../context/CartContext';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -14,18 +17,13 @@ const Register = () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { register, googleSignup } = useAuthContext();
+  const { addToCart } = useCart();
 
   const redirect = location.search ? location.search.split('=')[1] : '/';
-
-  useEffect(() => {
-    const userInfo = localStorage.getItem('userInfo');
-    if (userInfo) {
-      navigate(redirect);
-    }
-  }, [navigate, redirect]);
 
   const handleChange = (e) => {
     setFormData({
@@ -34,19 +32,42 @@ const Register = () => {
     });
   };
 
+  const handlePendingCartItem = async () => {
+    const pendingCartItem = sessionStorage.getItem('pendingCartItem');
+    if (pendingCartItem) {
+      try {
+        const cartItem = JSON.parse(pendingCartItem);
+        await addToCart(cartItem);
+        toast.success(`${cartItem.title} added to cart!`, {
+          position: "bottom-right",
+          autoClose: 2000,
+        });
+      } catch (error) {
+        console.error('Error adding pending item to cart:', error);
+      } finally {
+        sessionStorage.removeItem('pendingCartItem');
+      }
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError('');
-
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
-      setLoading(false);
       return;
     }
 
     try {
-      await register(formData);
+      setLoading(true);
+      setError('');
+      await register({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+      });
+      
+      await handlePendingCartItem();
+      
       navigate(redirect);
     } catch (err) {
       setError(err.message || 'Failed to register');
@@ -55,41 +76,40 @@ const Register = () => {
     }
   };
 
-  const handleGoogleSignup = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+  const handleGoogleSignup = async () => {
     try {
-      console.log('Starting Google signup process');
+      setGoogleLoading(true);
+      setError('');
       await googleSignup();
-      console.log('Google signup successful, navigating to:', redirect);
+      
+      await handlePendingCartItem();
+      
       navigate(redirect);
     } catch (err) {
-      console.error('Google signup error in Register component:', err);
-      if (err.message.includes('popup')) {
-        setError('Please allow popups for this website to sign in with Google. Check your browser settings if you continue to have issues.');
-      } else {
-        setError(err.message || 'Failed to sign up with Google');
-      }
+      setError(err.message || 'Google signup failed');
     } finally {
-      setLoading(false);
+      setGoogleLoading(false);
     }
   };
 
   return (
     <div>
       <Navbar />
-      <div className="min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md mx-auto">
+      <div className="min-h-screen bg-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+        <div className="sm:mx-auto sm:w-full sm:max-w-md">
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+            Create your account
+          </h2>
+        </div>
+
+        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
           <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Create your account</h2>
-            
             {error && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-                <span className="block sm:inline">{error}</span>
+              <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+                {error}
               </div>
             )}
-
+            
             <form className="space-y-6" onSubmit={handleSubmit}>
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700">
@@ -100,7 +120,6 @@ const Register = () => {
                     id="name"
                     name="name"
                     type="text"
-                    autoComplete="name"
                     required
                     value={formData.name}
                     onChange={handleChange}
@@ -136,7 +155,6 @@ const Register = () => {
                     id="password"
                     name="password"
                     type="password"
-                    autoComplete="new-password"
                     required
                     value={formData.password}
                     onChange={handleChange}
@@ -154,7 +172,6 @@ const Register = () => {
                     id="confirmPassword"
                     name="confirmPassword"
                     type="password"
-                    autoComplete="new-password"
                     required
                     value={formData.confirmPassword}
                     onChange={handleChange}
@@ -180,49 +197,33 @@ const Register = () => {
                   <div className="w-full border-t border-gray-300" />
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">Or sign up with</span>
+                  <span className="px-2 bg-white text-gray-500">
+                    Or continue with
+                  </span>
                 </div>
               </div>
 
               <div className="mt-6">
                 <button
-                  type="button"
                   onClick={handleGoogleSignup}
-                  disabled={loading}
-                  className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                  disabled={googleLoading}
+                  className="w-full flex justify-center items-center gap-3 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
                 >
-                  <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24" width="24" height="24">
-                    <g transform="matrix(1, 0, 0, 1, 27.009001, -39.238998)">
-                      <path fill="#4285F4" d="M -3.264 51.509 C -3.264 50.719 -3.334 49.969 -3.454 49.239 L -14.754 49.239 L -14.754 53.749 L -8.284 53.749 C -8.574 55.229 -9.424 56.479 -10.684 57.329 L -10.684 60.329 L -6.824 60.329 C -4.564 58.239 -3.264 55.159 -3.264 51.509 Z"/>
-                      <path fill="#34A853" d="M -14.754 63.239 C -11.514 63.239 -8.804 62.159 -6.824 60.329 L -10.684 57.329 C -11.764 58.049 -13.134 58.489 -14.754 58.489 C -17.884 58.489 -20.534 56.379 -21.484 53.529 L -25.464 53.529 L -25.464 56.619 C -23.494 60.539 -19.444 63.239 -14.754 63.239 Z"/>
-                      <path fill="#FBBC05" d="M -21.484 53.529 C -21.734 52.809 -21.864 52.039 -21.864 51.239 C -21.864 50.439 -21.724 49.669 -21.484 48.949 L -21.484 45.859 L -25.464 45.859 C -26.284 47.479 -26.754 49.299 -26.754 51.239 C -26.754 53.179 -26.284 54.999 -25.464 56.619 L -21.484 53.529 Z"/>
-                      <path fill="#EA4335" d="M -14.754 43.989 C -12.984 43.989 -11.404 44.599 -10.154 45.789 L -6.734 42.369 C -8.804 40.429 -11.514 39.239 -14.754 39.239 C -19.444 39.239 -23.494 41.939 -25.464 45.859 L -21.484 48.949 C -20.534 46.099 -17.884 43.989 -14.754 43.989 Z"/>
-                    </g>
-                  </svg>
-                  Sign up with Google
+                  <FaGoogle className="text-red-500" />
+                  {googleLoading ? 'Signing up with Google...' : 'Sign up with Google'}
                 </button>
               </div>
             </div>
 
-            <div className="mt-6">
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300" />
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">Already have an account?</span>
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <Link
-                  to="/login"
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                >
-                  Sign in
-                </Link>
-              </div>
-            </div>
+            <p className="mt-6 text-center text-sm text-gray-600">
+              Already have an account?{' '}
+              <Link
+                to={redirect ? `/login?redirect=${redirect}` : '/login'}
+                className="font-medium text-indigo-600 hover:text-indigo-500"
+              >
+                Sign in
+              </Link>
+            </p>
           </div>
         </div>
       </div>

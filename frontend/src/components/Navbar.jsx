@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import SearchBarWrapper from './SearchBarWrapper';
 import { useAuthContext } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { FiShoppingCart, FiUser, FiLogOut, FiMenu, FiX } from 'react-icons/fi';
 
 // Add a CSS keyframes animation to the stylesheet
 const pulseAnimation = `
@@ -142,9 +143,13 @@ const Navbar = () => {
     setIsDropdownOpen(!isDropdownOpen);
   };
 
-  const handleLogout = () => {
-    setIsDropdownOpen(false);
-    logout();
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setIsDropdownOpen(false);
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
   };
 
   return (
@@ -180,16 +185,18 @@ const Navbar = () => {
             >
               Cart
             </Link>
-            <Link 
-              to="/orders" 
-              className={`text-sm font-medium transition-colors duration-200 ${
-                location.pathname === '/orders' 
-                  ? 'text-indigo-600' 
-                  : 'text-gray-700 hover:text-indigo-600'
-              }`}
-            >
-              Orders
-            </Link>
+            {user && (
+              <Link 
+                to="/orders" 
+                className={`text-sm font-medium transition-colors duration-200 ${
+                  location.pathname === '/orders' 
+                    ? 'text-indigo-600' 
+                    : 'text-gray-700 hover:text-indigo-600'
+                }`}
+              >
+                Orders
+              </Link>
+            )}
           </div>
 
           {/* Search Bar - Desktop */}
@@ -201,9 +208,7 @@ const Navbar = () => {
           <div className="flex items-center space-x-4">
             {/* Cart Icon */}
             <Link to="/cart" className="relative p-2 text-gray-700 hover:text-indigo-600 transition-colors duration-200">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-              </svg>
+              <FiShoppingCart className="h-6 w-6" />
               {itemCount > 0 && (
                 <span className={cartBadgeClass} style={pulseStyle}>
                   {itemCount}
@@ -211,8 +216,8 @@ const Navbar = () => {
               )}
             </Link>
 
-            {/* Profile Dropdown */}
-            {user && (
+            {/* User is authenticated - show profile dropdown */}
+            {user ? (
               <div className="relative">
                 <button
                   ref={profileButtonRef}
@@ -267,6 +272,22 @@ const Navbar = () => {
                   </div>
                 )}
               </div>
+            ) : (
+              /* User not authenticated - show login/register buttons */
+              <div className="hidden md:flex md:items-center md:space-x-4">
+                <Link
+                  to="/login"
+                  className="text-sm font-medium text-gray-700 hover:text-indigo-600"
+                >
+                  Sign in
+                </Link>
+                <Link
+                  to="/register"
+                  className="text-sm font-medium bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
+                >
+                  Sign up
+                </Link>
+              </div>
             )}
 
             {/* Mobile menu button */}
@@ -277,13 +298,9 @@ const Navbar = () => {
               >
                 <span className="sr-only">Open main menu</span>
                 {isMenuOpen ? (
-                  <svg className="block h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <FiX className="h-6 w-6" />
                 ) : (
-                  <svg className="block h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
+                  <FiMenu className="h-6 w-6" />
                 )}
               </button>
             </div>
@@ -318,35 +335,80 @@ const Navbar = () => {
             >
               Cart
             </Link>
-            <Link
-              to="/orders"
-              className={`block px-3 py-2 rounded-md text-base font-medium ${
-                location.pathname === '/orders'
-                  ? 'bg-indigo-50 text-indigo-600'
-                  : 'text-gray-700 hover:bg-gray-50 hover:text-indigo-600'
-              }`}
-            >
-              Orders
-            </Link>
-            {isSeller && (
-              <Link
-                to="/seller/dashboard"
-                className={`block px-3 py-2 rounded-md text-base font-medium ${
-                  location.pathname.startsWith('/seller')
-                    ? 'bg-indigo-50 text-indigo-600'
-                    : 'text-gray-700 hover:bg-gray-50 hover:text-indigo-600'
-                }`}
-              >
-                Seller Dashboard
-              </Link>
-            )}
-            {!isSeller && (
-              <Link
-                to="/become-seller"
-                className="block px-3 py-2 rounded-md text-base font-medium bg-indigo-50 text-indigo-600"
-              >
-                Become a Seller
-              </Link>
+            {user ? (
+              /* Show authenticated user options in mobile menu */
+              <>
+                <Link
+                  to="/orders"
+                  className={`block px-3 py-2 rounded-md text-base font-medium ${
+                    location.pathname === '/orders'
+                      ? 'bg-indigo-50 text-indigo-600'
+                      : 'text-gray-700 hover:bg-gray-50 hover:text-indigo-600'
+                  }`}
+                >
+                  Orders
+                </Link>
+                <Link
+                  to="/profile"
+                  className={`block px-3 py-2 rounded-md text-base font-medium ${
+                    location.pathname === '/profile'
+                      ? 'bg-indigo-50 text-indigo-600'
+                      : 'text-gray-700 hover:bg-gray-50 hover:text-indigo-600'
+                  }`}
+                >
+                  Profile
+                </Link>
+                {isSeller && (
+                  <Link
+                    to="/seller/dashboard"
+                    className={`block px-3 py-2 rounded-md text-base font-medium ${
+                      location.pathname.startsWith('/seller')
+                        ? 'bg-indigo-50 text-indigo-600'
+                        : 'text-gray-700 hover:bg-gray-50 hover:text-indigo-600'
+                    }`}
+                  >
+                    Seller Dashboard
+                  </Link>
+                )}
+                {!isSeller && (
+                  <Link
+                    to="/become-seller"
+                    className="block px-3 py-2 rounded-md text-base font-medium bg-indigo-50 text-indigo-600"
+                  >
+                    Become a Seller
+                  </Link>
+                )}
+                <button
+                  onClick={handleLogout}
+                  className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-indigo-600"
+                >
+                  Sign out
+                </button>
+              </>
+            ) : (
+              /* Show login/register options in mobile menu */
+              <>
+                <Link
+                  to="/login"
+                  className={`block px-3 py-2 rounded-md text-base font-medium ${
+                    location.pathname === '/login'
+                      ? 'bg-indigo-50 text-indigo-600'
+                      : 'text-gray-700 hover:bg-gray-50 hover:text-indigo-600'
+                  }`}
+                >
+                  Sign in
+                </Link>
+                <Link
+                  to="/register"
+                  className={`block px-3 py-2 rounded-md text-base font-medium ${
+                    location.pathname === '/register'
+                      ? 'bg-indigo-50 text-indigo-600'
+                      : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  }`}
+                >
+                  Sign up
+                </Link>
+              </>
             )}
           </div>
         </div>

@@ -12,13 +12,18 @@ const authUser = asyncHandler(async (req, res) => {
 
   if (user && (await user.matchPassword(password))) {
     console.log('Login successful for user:', user._id);
+    
+    // Generate token
+    const token = user.generateToken();
+    
     res.json({
       _id: user._id,
       name: user.name,
       email: user.email,
       isAdmin: user.isAdmin,
       isSeller: user.isSeller,
-      sellerInfo: user.sellerInfo
+      sellerInfo: user.sellerInfo,
+      token
     });
   } else {
     console.log('Login failed: Invalid email or password');
@@ -50,13 +55,18 @@ const registerUser = asyncHandler(async (req, res) => {
 
   if (user) {
     console.log('Registration successful for user:', user._id);
+    
+    // Generate token
+    const token = user.generateToken();
+    
     res.status(201).json({
       _id: user._id,
       name: user.name,
       email: user.email,
       isAdmin: user.isAdmin,
       isSeller: user.isSeller,
-      sellerInfo: user.sellerInfo
+      sellerInfo: user.sellerInfo,
+      token
     });
   } else {
     console.log('Registration failed: Invalid user data');
@@ -102,6 +112,9 @@ const googleAuth = asyncHandler(async (req, res) => {
     });
   }
 
+  // Generate token
+  const token = user.generateToken();
+
   console.log('Google auth successful for user:', user._id);
   res.json({
     _id: user._id,
@@ -109,7 +122,8 @@ const googleAuth = asyncHandler(async (req, res) => {
     email: user.email,
     isAdmin: user.isAdmin,
     isSeller: user.isSeller,
-    sellerInfo: user.sellerInfo
+    sellerInfo: user.sellerInfo,
+    token
   });
 });
 
@@ -276,22 +290,17 @@ const cartRequestLimiter = {
 const getUserCart = asyncHandler(async (req, res) => {
   // Add rate limiting
   if (!cartRequestLimiter.canProcess(req.user._id.toString())) {
-    console.log(`Rate limit exceeded for user ${req.user._id} - GET /api/users/cart`);
     res.status(429);
     throw new Error('Too many requests. Please try again later.');
   }
-
-  console.log(`Getting cart for user ID: ${req.user._id}`);
   
   try {
     const user = await User.findById(req.user._id);
 
     if (user) {
-      console.log(`User found: ${user.name}, cart items: ${user.cart ? user.cart.length : 0}`);
       // Return the user's cart from their profile
       res.json(user.cart || []);
     } else {
-      console.log(`User not found with ID: ${req.user._id}`);
       res.status(404);
       throw new Error('User not found');
     }
@@ -306,72 +315,68 @@ const getUserCart = asyncHandler(async (req, res) => {
 // @route   PUT /api/users/cart
 // @access  Private
 const updateUserCart = asyncHandler(async (req, res) => {
-  // Add rate limiting
-  if (!cartRequestLimiter.canProcess(req.user._id.toString())) {
-    console.log(`Rate limit exceeded for user ${req.user._id} - PUT /api/users/cart`);
-    res.status(429);
-    throw new Error('Too many requests. Please try again later.');
-  }
-
-  console.log(`Updating cart for user ID: ${req.user._id}`);
-  console.log('Request body:', JSON.stringify(req.body));
-  
   const user = await User.findById(req.user._id);
 
-  if (user) {
-    try {
-      // Validate cart items
-      const cartItems = req.body.cartItems || [];
-      
-      // Check if cartItems is an array
-      if (!Array.isArray(cartItems)) {
-        console.log('Invalid cart items - not an array:', typeof cartItems);
-        return res.status(400).json({
-          success: false,
-          message: 'Cart items must be an array'
-        });
-      }
-      
-      console.log(`Processing ${cartItems.length} cart items`);
-      
-      // Validate cart item structure
-      for (const item of cartItems) {
-        console.log('Validating cart item:', JSON.stringify(item));
-        
-        if (!item.productId || !item.name || !item.image || typeof item.price !== 'number' || typeof item.quantity !== 'number') {
-          console.log('Invalid cart item structure:', JSON.stringify({
-            hasProductId: !!item.productId,
-            hasName: !!item.name,
-            hasImage: !!item.image,
-            priceType: typeof item.price,
-            quantityType: typeof item.quantity
-          }));
-          
-          return res.status(400).json({
-            success: false,
-            message: 'Invalid cart item structure'
-          });
-        }
-      }
-      
-      // Update cart items
-      user.cart = cartItems;
-      
-      const updatedUser = await user.save();
-      console.log(`Cart updated successfully for user ${user._id}, items: ${updatedUser.cart.length}`);
-
-      res.json({
-        success: true,
-        cart: updatedUser.cart
-      });
-    } catch (error) {
-      console.error(`Error updating cart: ${error.message}`, error);
-      res.status(400);
-      throw new Error('Error updating cart: ' + error.message);
-    }
-  } else {
+  if (!user) {
     res.status(404);
     throw new Error('User not found');
+  }
+  
+  try {
+    const { cartItems } = req.body;
+    
+    if (!cartItems || !Array.isArray(cartItems)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cart items must be an array'
+      });
+    }
+    
+    // Rate limiting
+    if (!cartRequestLimiter.canProcess(user._id.toString())) {
+      return res.status(429).json({
+        success: false,
+        message: 'Too many cart updates. Please try again in a moment.'
+      });
+    }
+    
+    // Validate cart item structure
+    for (const item of cartItems) {
+      if (!item.productId || !item.name || !item.image || typeof item.price !== 'number' || typeof item.quantity !== 'number') {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid cart item structure'
+        });
+      }
+    }
+    
+    // Update cart items
+    user.cart = cartItems;
+    
+    const updatedUser = await user.save();
+    
+    // Emit socket event for real-time cart updates
+    const io = req.app.get('io');
+    if (io) {
+      const userRoomId = `user-${user._id}`;
+      
+      // Broadcast to all devices for this user
+      io.to(userRoomId).emit('cart_updated', {
+        cart: updatedUser.cart,
+        userId: user._id.toString(),
+        timestamp: new Date().toISOString(),
+        source: 'server'
+      });
+    }
+
+    res.json({
+      success: true,
+      cart: updatedUser.cart
+    });
+  } catch (error) {
+    console.error(`Error updating cart: ${error.message}`);
+    res.status(400);
+    throw new Error('Error updating cart: ' + error.message);
   }
 });
 

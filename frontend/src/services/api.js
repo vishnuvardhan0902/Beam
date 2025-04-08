@@ -53,13 +53,14 @@ PaymentMethod {
 // API service for frontend/src/services/api.js
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_BACKEND_URL;
+const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001';
 
 const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json'
-  }
+  },
+  withCredentials: true // Enable credentials for CORS
 });
 
 // Add user ID to headers if available
@@ -72,6 +73,9 @@ api.interceptors.request.use((config) => {
         console.log('Adding user ID to request headers:', userData._id);
         config.headers['user-id'] = userData._id;
       }
+      if (userData && userData.token) {
+        config.headers['Authorization'] = `Bearer ${userData.token}`;
+      }
     } catch (error) {
       console.error('Error parsing user info from localStorage:', error);
     }
@@ -83,7 +87,7 @@ class ApiService {
   static async login(credentials) {
     try {
       console.log('Login attempt with:', credentials);
-      const endpoint = credentials.googleId ? '/users/google' : '/users/login';
+      const endpoint = credentials.googleId ? '/api/users/google' : '/api/users/login';
       console.log('Using endpoint:', endpoint);
       const response = await api.post(endpoint, credentials);
       console.log('Login response:', response.data);
@@ -97,7 +101,7 @@ class ApiService {
   static async register(userData) {
     try {
       console.log('Register attempt with:', userData);
-      const endpoint = userData.googleId ? '/users/google' : '/users';
+      const endpoint = userData.googleId ? '/api/users/google' : '/api/users/register';
       console.log('Using endpoint:', endpoint);
       const response = await api.post(endpoint, userData);
       console.log('Register response:', response.data);
@@ -124,6 +128,7 @@ export default ApiService;
 const apiCache = new Map();
 const cacheTTL = 60000; // 1 minute default TTL
 const pendingRequests = new Map();
+const loginAttemptInProgress = { value: false };
 
 // Make sure we're not adding /api prefix twice
 const formatEndpoint = (endpoint) => {
@@ -139,10 +144,10 @@ const formatEndpoint = (endpoint) => {
 const fetchApi = async (endpoint, options = {}) => {
   try {
     // Add user ID and authorization token to headers if available
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
 
     const userInfo = localStorage.getItem('userInfo');
     if (userInfo) {
@@ -153,7 +158,6 @@ const fetchApi = async (endpoint, options = {}) => {
           headers['user-id'] = userData._id;
         }
         if (userData && userData.token) {
-          console.log('Adding authorization token to fetch request headers');
           headers['Authorization'] = `Bearer ${userData.token}`;
         }
       } catch (error) {
@@ -163,10 +167,18 @@ const fetchApi = async (endpoint, options = {}) => {
     
     console.log(`Making API request to: ${API_URL}${endpoint}`);
     
+    // Set a default timeout to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), options.timeout || 30000);
+    
     const response = await fetch(`${API_URL}${endpoint}`, {
       ...options,
       headers,
+      credentials: 'include',
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
 
     // Check if response is OK
     if (!response.ok) {
@@ -181,6 +193,42 @@ const fetchApi = async (endpoint, options = {}) => {
         // If not JSON, get text from the clone
         try {
           const text = await responseClone.text();
+          
+          // Special handling for 401 Unauthorized errors
+          if (response.status === 401) {
+            console.error('Authentication error:', text);
+            
+            // Don't trigger multiple redirects or login attempts
+            if (!loginAttemptInProgress.value) {
+              loginAttemptInProgress.value = true;
+              
+              // Clear user info if unauthorized
+              localStorage.removeItem('userInfo');
+              localStorage.removeItem('tokenExpiry');
+              
+              // Only redirect if not already on login page and not in the middle of a payment
+              const isPaymentPage = window.location.pathname.includes('checkout') || 
+                                   window.location.pathname.includes('payment');
+              const isLoginPage = window.location.pathname.includes('login');
+              
+              if (!isLoginPage && !isPaymentPage) {
+                // Store the current URL to redirect back after login
+                const currentPage = window.location.pathname + window.location.search;
+                localStorage.setItem('redirectAfterLogin', currentPage);
+                
+                // Wait a moment before redirecting
+                setTimeout(() => {
+                  window.location.href = '/login';
+                  loginAttemptInProgress.value = false;
+                }, 500);
+              } else {
+                loginAttemptInProgress.value = false;
+              }
+            }
+            
+            throw new Error('Authentication failed. Please login again.');
+          }
+          
           console.error('Non-JSON error response:', text);
           throw new Error(`HTTP error! status: ${response.status}`);
         } catch (textError) {
@@ -196,37 +244,45 @@ const fetchApi = async (endpoint, options = {}) => {
       return await response.json();
     } else {
       // Handle non-JSON responses
-    const text = await response.text();
-      console.warn('Received non-JSON response:', text);
-      throw new Error('Received non-JSON response from server');
+      const text = await response.text();
+      
+      // Try to parse text as JSON first (sometimes content-type is incorrectly set)
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        // It's genuinely not JSON
+        console.warn('Received non-JSON response:', text);
+        throw new Error('Received non-JSON response from server');
+      }
     }
   } catch (error) {
+    // Handle network errors specially
+    if (error.name === 'AbortError') {
+      console.error('Request timed out');
+      throw new Error('Request timed out. Please try again later.');
+    }
+    
+    if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+      console.error('Network error:', error);
+      throw new Error('Network error. Please check your connection and try again.');
+    }
+    
     console.error('API Error:', error);
     throw error;
   }
 };
 
 // User API calls
-export const getUserProfile = async () => {
-  const userInfo = JSON.parse(localStorage.getItem('userInfo'));
-  if (!userInfo) {
-    throw new Error('Not logged in');
-  }
-  
-  return fetchApi('/users/profile');
-};
+export async function getUserProfile() {
+  return fetchApi('/api/users/profile');
+}
 
-export const updateUserProfile = async (userData) => {
-  const userInfo = JSON.parse(localStorage.getItem('userInfo'));
-  if (!userInfo) {
-    throw new Error('Not logged in');
-  }
-  
-  return fetchApi('/users/profile', {
+export async function updateUserProfile(userData) {
+  return fetchApi('/api/users/profile', {
     method: 'PUT',
     body: JSON.stringify(userData),
   });
-};
+}
 
 // Product related functions
 export async function getProducts(params = {}) {
@@ -237,7 +293,13 @@ export async function getProducts(params = {}) {
   });
   
   const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
-  return fetchApi(`/products${queryString}`);
+  try {
+    console.log(`Fetching products with params: ${queryString}`);
+    return await fetchApi(`/api/products${queryString}`);
+  } catch (error) {
+    console.error('Error fetching products:', error);
+    throw error;
+  }
 }
 
 export async function getProductDetails(id) {
@@ -252,11 +314,17 @@ export async function getProductDetails(id) {
     }
   }
   
-  return fetchApi(`/products/${id}`);
+  return fetchApi(`/api/products/${id}`);
 }
 
 export async function getTopProducts() {
-  return fetchApi('/products/top');
+  try {
+    console.log('Fetching top products');
+    return await fetchApi(`/api/products/top`);
+  } catch (error) {
+    console.error('Error fetching top products:', error);
+    throw error;
+  }
 }
 
 export async function createProduct(productData) {
@@ -284,7 +352,7 @@ export async function googleLogin(googleData) {
   console.log('Attempting Google login with data:', googleData);
   try {
     // Make sure to use properly formatted URL and avoid double /api prefixes
-    const endpoint = '/users/google-login';
+    const endpoint = '/api/users/google-login';
     const formattedEndpoint = formatEndpoint(endpoint);
     const fullUrl = `${API_URL}${formattedEndpoint}`;
     
@@ -328,7 +396,7 @@ export async function googleSignup(googleData) {
   console.log('Attempting Google signup with data:', googleData);
   try {
     // Make sure to use properly formatted URL and avoid double /api prefixes
-    const endpoint = '/users/google';
+    const endpoint = '/api/users/google';
     const formattedEndpoint = formatEndpoint(endpoint);
     const fullUrl = `${API_URL}${formattedEndpoint}`;
     
@@ -370,62 +438,62 @@ export async function googleSignup(googleData) {
 
 // Address management functions
 export async function getUserAddresses() {
-  return fetchApi('/users/addresses');
+  return fetchApi('/api/users/addresses');
 }
 
 export async function addUserAddress(address) {
-  return fetchApi('/users/addresses', {
+  return fetchApi('/api/users/addresses', {
     method: 'POST',
     body: JSON.stringify(address),
   });
 }
 
 export async function updateUserAddress(addressId, address) {
-  return fetchApi(`/users/addresses/${addressId}`, {
+  return fetchApi(`/api/users/addresses/${addressId}`, {
     method: 'PUT',
     body: JSON.stringify(address),
   });
 }
 
 export async function deleteUserAddress(addressId) {
-  return fetchApi(`/users/addresses/${addressId}`, {
+  return fetchApi(`/api/users/addresses/${addressId}`, {
     method: 'DELETE',
   });
 }
 
 export async function setDefaultAddress(addressId) {
-  return fetchApi(`/users/addresses/${addressId}/default`, {
+  return fetchApi(`/api/users/addresses/${addressId}/default`, {
     method: 'PUT',
   });
 }
 
 // Payment method management functions
 export async function getUserPaymentMethods() {
-  return fetchApi('/users/payment-methods');
+  return fetchApi('/api/users/payment-methods');
 }
 
 export async function addUserPaymentMethod(paymentMethod) {
-  return fetchApi('/users/payment-methods', {
+  return fetchApi('/api/users/payment-methods', {
     method: 'POST',
     body: JSON.stringify(paymentMethod),
   });
 }
 
 export async function updateUserPaymentMethod(paymentMethodId, paymentMethod) {
-  return fetchApi(`/users/payment-methods/${paymentMethodId}`, {
+  return fetchApi(`/api/users/payment-methods/${paymentMethodId}`, {
     method: 'PUT',
     body: JSON.stringify(paymentMethod),
   });
 }
 
 export async function deleteUserPaymentMethod(paymentMethodId) {
-  return fetchApi(`/users/payment-methods/${paymentMethodId}`, {
+  return fetchApi(`/api/users/payment-methods/${paymentMethodId}`, {
     method: 'DELETE',
   });
 }
 
 export async function setDefaultPaymentMethod(paymentMethodId) {
-  return fetchApi(`/users/payment-methods/${paymentMethodId}/default`, {
+  return fetchApi(`/api/users/payment-methods/${paymentMethodId}/default`, {
     method: 'PUT',
   });
 }
@@ -463,7 +531,7 @@ export async function getUserCart() {
     }
     
     // Skip API call if offline or if there have been too many recent errors
-    const errorCacheKey = `${formatEndpoint('/users/cart')}_error_count`;
+    const errorCacheKey = `${formatEndpoint('/api/users/cart')}_error_count`;
     const errorCount = parseInt(sessionStorage.getItem(errorCacheKey) || '0');
     if (errorCount >= 3 && navigator.onLine === false) {
       console.log('Offline or too many errors - using cached cart or empty array');
@@ -471,7 +539,7 @@ export async function getUserCart() {
     }
     
     console.log('Fetching cart from server');
-    const data = await fetchApi('/users/cart', {
+    const data = await fetchApi('/api/users/cart', {
       timeout: 3000 // Shorter timeout for cart requests
     });
     
@@ -561,7 +629,7 @@ export async function updateUserCart(cartItems) {
     console.log('Sending cart update with items:', formattedCartItems);
     
     // Perform the update
-    const result = await fetchApi('/users/cart', {
+    const result = await fetchApi('/api/users/cart', {
       method: 'PUT',
       body: JSON.stringify({ cartItems: formattedCartItems })
     });
@@ -575,22 +643,33 @@ export async function updateUserCart(cartItems) {
 
 // Order related functions
 export async function listMyOrders() {
-  return fetchApi('/orders/myorders');
+  try {
+    console.log('Fetching user orders');
+    return await fetchApi('/api/orders/myorders');
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    throw error;
+  }
 }
 
 export async function getOrderDetails(id) {
-  return fetchApi(`/orders/${id}`);
+  try {
+    return await fetchApi(`/api/orders/${id}`);
+  } catch (error) {
+    console.error(`Error fetching order details for ${id}:`, error);
+    throw error;
+  }
 }
 
 export async function createOrder(orderData) {
-  return fetchApi('/orders', {
+  return fetchApi('/api/orders', {
     method: 'POST',
     body: JSON.stringify(orderData),
   });
 }
 
 export async function payOrder(orderId, paymentResult) {
-  return fetchApi(`/orders/${orderId}/pay`, {
+  return fetchApi(`/api/orders/${orderId}/pay`, {
     method: 'PUT',
     body: JSON.stringify(paymentResult),
   });
@@ -598,17 +677,41 @@ export async function payOrder(orderId, paymentResult) {
 
 // Seller related functions
 export async function getSellerProducts() {
-  return fetchApi('/products/seller');
+  try {
+    console.log('Fetching seller products');
+    return await fetchApi('/api/products/seller');
+  } catch (error) {
+    console.error('Error fetching seller products:', error);
+    throw error;
+  }
 }
 
 export async function getSellerOrders() {
-  return fetchApi('/sellers/orders');
+  try {
+    console.log('Fetching seller orders');
+    return await fetchApi('/api/sellers/orders');
+  } catch (error) {
+    console.error('Error fetching seller orders:', error);
+    throw error;
+  }
 }
 
 export async function getSellerDashboardData() {
-  return fetchApi('/sellers/dashboard');
+  try {
+    console.log('Fetching seller dashboard data');
+    return await fetchApi('/api/sellers/dashboard');
+  } catch (error) {
+    console.error('Error fetching seller dashboard data:', error);
+    throw error;
+  }
 }
 
 export async function getSellerSales(period = 'weekly') {
-  return fetchApi(`/sellers/sales?period=${period}`);
+  try {
+    console.log(`Fetching seller sales data for period: ${period}`);
+    return await fetchApi(`/api/sellers/sales?period=${period}`);
+  } catch (error) {
+    console.error('Error fetching seller sales data:', error);
+    throw error;
+  }
 } 

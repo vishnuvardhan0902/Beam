@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -23,6 +23,9 @@ const Products = () => {
   const [productsPerPage, setProductsPerPage] = useState(18);
   const [minPrice, setMinPrice] = useState(0);
   const [maxPrice, setMaxPrice] = useState(300);
+  const [categories, setCategories] = useState([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
+  const priceRangeAdjusted = useRef(false);
 
   // Handle window resize
   useEffect(() => {
@@ -79,54 +82,49 @@ const Products = () => {
   useEffect(() => {
     const fetchAllProducts = async () => {
       try {
-        // Use a large number to get all products
+        setLoadingCategories(true);
+        // Use a large number to get all products for category list only
         const params = {
-          keyword: searchKeyword,
           pageNumber: '1',
-          limit: '1000',
-          category: selectedCategory || ''
+          limit: '1000'
         };
         const data = await getProducts(params);
-        const formattedProducts = data.products.map((product) => ({
-          id: product._id,
-          _id: product._id,
-          name: product.name,
-          price: product.price,
-          category: product.category || 'Uncategorized',
-          image: product.images && product.images.length > 0 ? product.images[0] : undefined,
-          images: product.images || [],
-          rating: product.rating || 0,
-          reviewCount: product.numReviews || 0,
-          numReviews: product.numReviews || 0,
-          brand: product.brand || '',
-          colors: product.colors || [],
-          features: product.features || [],
-          sales: product.sales || 0
-        }));
-        setAllProducts(formattedProducts);
+        
+        // Extract unique categories and sort them alphabetically
+        const uniqueCategories = Array.from(
+          new Set(data.products.map(product => product.category || 'Uncategorized'))
+        ).sort();
+        
+        // Store categories separately
+        setCategories(uniqueCategories);
+        setLoadingCategories(false);
         
         // Set min and max price from all products
-        if (formattedProducts.length > 0) {
-          const prices = formattedProducts.map((p) => p.price);
-          setMinPrice(Math.floor(Math.min(...prices)));
-          setMaxPrice(Math.ceil(Math.max(...prices)));
-          setPriceRange([Math.floor(Math.min(...prices)), Math.ceil(Math.max(...prices))]);
+        if (data.products.length > 0) {
+          const prices = data.products.map((p) => p.price);
+          const minPriceValue = Math.floor(Math.min(...prices));
+          const maxPriceValue = Math.ceil(Math.max(...prices));
+          setMinPrice(minPriceValue);
+          setMaxPrice(maxPriceValue);
+          
+          // Only set price range if it hasn't been manually adjusted
+          if (!priceRangeAdjusted.current) {
+            setPriceRange([minPriceValue, maxPriceValue]);
+          }
         }
       } catch (err) {
-        console.error('Failed to fetch all products for filtering:', err);
+        console.error('Failed to fetch categories:', err);
+        setLoadingCategories(false);
       }
     };
 
     fetchAllProducts();
-  }, [searchKeyword, selectedCategory]);
+  }, []); // No dependencies - only fetch categories once
 
   // Reset to page 1 when search keyword changes
   useEffect(() => {
     setPage(1);
   }, [searchKeyword]);
-
-  // Derive categories from all products, not just current page
-  const categories = Array.from(new Set(allProducts.map(product => product.category)));
 
   // Filter products by price range only (category filtering is now done on the backend)
   const filteredProducts = products.filter(product => {
@@ -148,10 +146,22 @@ const Products = () => {
     }
   });
 
+  // Handle category change with improved UX
   const handleCategoryChange = (category) => {
+    if (category === selectedCategory) return; // Skip if same category already selected
+    
     setSelectedCategory(category);
     setPage(1); // Reset to first page when changing category
     setLoading(true); // Set loading state to true to show loading indicator
+    
+    // Update URL params
+    const params = new URLSearchParams(window.location.search);
+    if (category) {
+      params.set('category', category);
+    } else {
+      params.delete('category');
+    }
+    window.history.replaceState(null, '', `${window.location.pathname}?${params}`);
   };
 
   const handleSortChange = (e) => {
@@ -163,6 +173,7 @@ const Products = () => {
     const newRange = [...priceRange];
     newRange[index] = newValue;
     setPriceRange(newRange);
+    priceRangeAdjusted.current = true; // Mark that user has adjusted the price range
   };
 
   const toggleFilter = () => {

@@ -20,6 +20,21 @@ const Checkout = () => {
     }
   }, [cartItems, navigate, loading]);
   
+  // Check authentication status and redirect if not authenticated
+  useEffect(() => {
+    // Skip check while loading
+    if (loading) return;
+    
+    // If no user is logged in or token is expired, redirect to login
+    if (!user) {
+      console.log('User not authenticated, redirecting to login');
+      // Store the current location to redirect back after login
+      localStorage.setItem('redirectAfterLogin', '/checkout');
+      navigate('/login?redirect=checkout');
+      return;
+    }
+  }, [user, loading, navigate]);
+  
   // Form states
   const [firstName, setFirstName] = useState(user?.name?.split(' ')[0] || '');
   const [lastName, setLastName] = useState(user?.name?.split(' ')[1] || '');

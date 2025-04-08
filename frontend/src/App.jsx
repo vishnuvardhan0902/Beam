@@ -18,6 +18,7 @@ import ProductEditor from './pages/ProductEditor';
 import LandingPage from './pages/LandingPage';
 import Products from './pages/Products';
 import Shop from './pages/Shop';
+import PrivateRoute from './components/PrivateRoute';
 
 const App = () => {
   // Add debug logging
@@ -43,25 +44,43 @@ const App = () => {
     <Router>
       <AuthProvider>
         <CartProvider>
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/home" element={<LandingPage />} />
-            <Route path="/shop" element={<Shop />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/product/:id" element={<ProductDetail />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/cart" element={<Cart />} />
-            <Route path="/checkout" element={<Checkout />} />
-            <Route path="/orders" element={<Orders />} />
-            <Route path="/order/:id" element={<OrderDetail />} />
-            <Route path="/become-seller" element={<BecomeSeller />} />
-            <Route path="/seller/dashboard" element={<SellerDashboard />} />
-            <Route path="/seller/products/add" element={<ProductEditor />} />
-            <Route path="/seller/products/edit/:id" element={<ProductEditor />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <div className="min-h-screen bg-gray-50">
+            <main>
+              <Routes>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/home" element={<LandingPage />} />
+                <Route path="/shop" element={<Shop />} />
+                <Route path="/products" element={<Products />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/product/:id" element={<ProductDetail />} />
+                <Route
+                  path="/profile"
+                  element={
+                    <PrivateRoute>
+                      <Profile />
+                    </PrivateRoute>
+                  }
+                />
+                <Route path="/cart" element={<Cart />} />
+                <Route path="/checkout" element={<Checkout />} />
+                <Route
+                  path="/orders"
+                  element={
+                    <PrivateRoute>
+                      <Orders />
+                    </PrivateRoute>
+                  }
+                />
+                <Route path="/order/:id" element={<OrderDetail />} />
+                <Route path="/become-seller" element={<BecomeSeller />} />
+                <Route path="/seller/dashboard" element={<SellerDashboard />} />
+                <Route path="/seller/products/add" element={<ProductEditor />} />
+                <Route path="/seller/products/edit/:id" element={<ProductEditor />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </main>
+          </div>
         </CartProvider>
       </AuthProvider>
     </Router>

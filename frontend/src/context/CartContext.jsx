@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useContext, useRef, useCallback, useMemo } from 'react';
 import { useAuthContext } from './AuthContext';
 import { updateUserCart, getUserCart, getProductDetails } from '../services/api';
+import { io } from 'socket.io-client';
 
 const CartContext = createContext(null);
 
@@ -13,7 +14,8 @@ const API_STATE = {
   MIN_FETCH_INTERVAL: 60000, // Increase to 60 seconds minimum between fetches
   MIN_UPDATE_INTERVAL: 2000,  // 2 seconds minimum between updates
   updateQueue: [],           // Queue for batching updates
-  processingQueue: false     // Flag to prevent multiple queue processors
+  processingQueue: false,     // Flag to prevent multiple queue processors
+  socket: null               // WebSocket connection
 };
 
 // Enhanced helper to convert database cart format to frontend format
@@ -33,13 +35,10 @@ const mapDbCartToFrontend = (dbCart) => {
 const mapFrontendCartToDb = (cartItems) => {
   if (!cartItems || !Array.isArray(cartItems)) return [];
   
-  console.log('Converting frontend cart to DB format:', cartItems);
-  
   return cartItems.map(item => {
     // Check if productId or id is an object and convert to string if needed
     let productId = item.id || item.productId || 'unknown';
     if (typeof productId === 'object') {
-      console.warn('productId is an object, converting to string:', productId);
       productId = String(productId._id || productId.id || 'unknown');
     }
     
@@ -57,7 +56,6 @@ const mapFrontendCartToDb = (cartItems) => {
       quantity: typeof item.quantity === 'number' ? item.quantity : 1
     };
     
-    console.log('Mapped item:', dbItem);
     return dbItem;
   });
 };
@@ -77,12 +75,9 @@ const processBatchedUpdates = async () => {
     // Clear the queue
     API_STATE.updateQueue = [];
     
-    console.log(`Processing batched update with ${latestCart.length} items`);
-    
     // Process the latest cart state
     await updateUserCart(mapFrontendCartToDb(latestCart));
     
-    console.log('Batched cart update completed');
   } catch (error) {
     console.error('Error processing batched cart update:', error);
   } finally {
@@ -111,22 +106,8 @@ const handleApiError = (error, operation) => {
     error.message?.includes('401') ||
     error.message?.includes('unauthorized');
   
-  // Log analytics event for monitoring
-  try {
-    if (window.gtag) {
-      window.gtag('event', 'cart_error', {
-        event_category: 'error',
-        event_label: operation,
-        value: isNetworkError ? 1 : 0
-      });
-    }
-  } catch (e) {
-    // Ignore analytics errors
-  }
-  
   // For auth errors, we'll just use local storage
   if (isAuthError) {
-    console.log('Authentication error detected, falling back to local storage');
     return {
       success: false,
       isAuthError: true,
@@ -141,6 +122,119 @@ const handleApiError = (error, operation) => {
   };
 };
 
+// Initialize Socket.io with connection
+const initializeSocket = (user) => {
+  if (!user || !user._id) return null;
+  
+  // Clean up existing socket if any
+  cleanupSocket();
+  
+  try {
+    console.log('Initializing socket connection...');
+    
+    // Get backend URL from environment variables or use default
+    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001';
+    console.log('Using backend URL for socket:', BACKEND_URL);
+    
+    // Create socket connection with improved connection options
+    API_STATE.socket = io(BACKEND_URL, {
+      withCredentials: true,
+      transports: ['websocket'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 10000,
+      auth: { 
+        userId: user._id, 
+        token: user.token 
+      }
+    });
+    
+    // Set up event handlers with better logging
+    API_STATE.socket.on('connect', () => {
+      console.log(`Socket connected successfully with ID: ${API_STATE.socket.id}`);
+      
+      // Join user's room for personalized updates
+      API_STATE.socket.emit('join_user_room', { userId: user._id });
+    });
+    
+    API_STATE.socket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error.message);
+      
+      // Try to reconnect with exponential backoff
+      const reconnectDelay = Math.min(1000 * Math.pow(2, API_STATE.socket.reconnectAttempts || 0), 10000);
+      
+      setTimeout(() => {
+        if (API_STATE.socket) {
+          console.log(`Attempting to reconnect socket after ${reconnectDelay}ms...`);
+          API_STATE.socket.connect();
+        }
+      }, reconnectDelay);
+    });
+    
+    API_STATE.socket.on('disconnect', (reason) => {
+      console.log(`Socket disconnected, reason: ${reason}`);
+      
+      if (reason === 'io server disconnect') {
+        // Server initiated disconnect, attempt reconnection
+        setTimeout(() => {
+          if (API_STATE.socket) {
+            console.log('Attempting to reconnect after server disconnect...');
+            API_STATE.socket.connect();
+          }
+        }, 1000);
+      }
+    });
+    
+    // Handle cart update events
+    API_STATE.socket.on('cart_updated', (data) => {
+      if (!data || !data.cart) {
+        console.error('Received invalid cart update:', data);
+        return;
+      }
+      
+      console.log('Received cart update:', data);
+      
+      // Set flag to prevent echo
+      isWebSocketUpdateRef.current = true;
+      
+      try {
+        const frontendCart = mapDbCartToFrontend(data.cart);
+        if (isMountedRef.current) {
+          setCartItems(frontendCart);
+          saveCartToLocalStorage(frontendCart);
+        }
+      } catch (error) {
+        console.error('Error processing cart update:', error);
+      } finally {
+        // Reset flag after a delay
+        setTimeout(() => {
+          isWebSocketUpdateRef.current = false;
+        }, 100);
+      }
+    });
+    
+    return API_STATE.socket;
+  } catch (error) {
+    console.error('Error initializing socket:', error);
+    return null;
+  }
+};
+
+// Clean up socket connection
+const cleanupSocket = () => {
+  if (API_STATE.socket) {
+    console.log('Cleaning up existing socket connection');
+    try {
+      API_STATE.socket.disconnect();
+    } catch (error) {
+      console.error('Error disconnecting socket:', error);
+    }
+    API_STATE.socket = null;
+  }
+};
+
 export const CartProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState([]);
   const [shippingAddress, setShippingAddress] = useState(null);
@@ -152,6 +246,8 @@ export const CartProvider = ({ children }) => {
   const isMountedRef = useRef(true);
   // Track if initial cart load has completed
   const initialLoadCompletedRef = useRef(false);
+  // Track if the update is from WebSocket to prevent loops
+  const isWebSocketUpdateRef = useRef(false);
   
   // Helper function to safely update state only if component is mounted
   const safeSetState = (setter, value) => {
@@ -172,12 +268,19 @@ export const CartProvider = ({ children }) => {
   // Queue cart update for batched processing
   const queueCartUpdate = useCallback((cart) => {
     if (!user || !user._id) {
-      console.log('Skipping cart update - user not authenticated');
       return;
     }
     
     // Add to update queue
     API_STATE.updateQueue.push([...cart]);
+    
+    // Send update to other devices via WebSocket
+    if (API_STATE.socket && !isWebSocketUpdateRef.current) {
+      API_STATE.socket.emit('cart_update', { 
+        cart: mapFrontendCartToDb(cart),
+        userId: user._id
+      });
+    }
     
     // Debounce processing
     if (!API_STATE.processingQueue) {
@@ -185,6 +288,34 @@ export const CartProvider = ({ children }) => {
     }
   }, [user]);
 
+  // Initialize WebSocket when user changes
+  useEffect(() => {
+    let socketInitTimer;
+    
+    const initSocket = () => {
+      if (user && user._id) {
+        console.log('Initializing socket for user:', user._id);
+        const socket = initializeSocket(user);
+        
+        if (!socket) {
+          // Retry socket initialization after delay
+          socketInitTimer = setTimeout(initSocket, 5000);
+        }
+      } else {
+        cleanupSocket();
+      }
+    };
+    
+    initSocket();
+    
+    return () => {
+      cleanupSocket();
+      if (socketInitTimer) {
+        clearTimeout(socketInitTimer);
+      }
+    };
+  }, [user]);
+  
   // Load cart from localStorage when component mounts (ONCE ONLY)
   useEffect(() => {
     const loadLocalCart = () => {
@@ -226,7 +357,6 @@ export const CartProvider = ({ children }) => {
   useEffect(() => {
     // Skip if not authenticated or if initial load hasn't completed
     if (!user || !user._id || !initialLoadCompletedRef.current) {
-      console.log('Skipping cart fetch - user not authenticated or initial load not completed');
       safeSetState(setLoading, false);
       return;
     }
@@ -237,7 +367,6 @@ export const CartProvider = ({ children }) => {
       const now = Date.now();
       if (API_STATE.cartFetchInProgress || 
           (now - API_STATE.lastCartFetchTime < API_STATE.MIN_FETCH_INTERVAL)) {
-        console.log('Skipping cart fetch - already in progress or too soon');
         safeSetState(setLoading, false);
         return { success: false, skipped: true };
       }
@@ -247,13 +376,11 @@ export const CartProvider = ({ children }) => {
       API_STATE.lastCartFetchTime = now;
       
       try {
-        console.log('Fetching cart from API');
         const userCartData = await getUserCart();
         
         if (userCartData && Array.isArray(userCartData) && userCartData.length > 0) {
           // Convert DB format to frontend format
           const frontendCart = mapDbCartToFrontend(userCartData);
-          console.log('Loaded cart from database:', frontendCart);
           
           // Update state and localStorage
           safeSetState(setCartItems, frontendCart);
@@ -261,14 +388,11 @@ export const CartProvider = ({ children }) => {
           
           return { success: true, cartItems: frontendCart };
         } else {
-          console.log('No items in remote cart');
-          
           // Check if we have local items to sync to server
           const storedCartItems = localStorage.getItem('cartItems');
           const localCart = storedCartItems ? JSON.parse(storedCartItems) : [];
           
           if (localCart.length > 0 && isMountedRef.current) {
-            console.log('Local cart has items, scheduling sync to server');
             queueCartUpdate(localCart);
           }
           
@@ -314,13 +438,10 @@ export const CartProvider = ({ children }) => {
       let productInfo = null;
       
       if (typeof productId === 'object') {
-        console.warn('productId is an object in addToCart, converting to string:', productId);
         // Extract the ID but save the entire object for product details
         productInfo = productId;
         productIdStr = String(productId._id || productId.id || 'unknown');
       }
-      
-      console.log(`Adding product ${productIdStr} to cart, quantity: ${quantity}`);
       
       // Find in existing cart
       const existingItem = cartItems.find(item => item.id === productIdStr);
@@ -352,7 +473,6 @@ export const CartProvider = ({ children }) => {
             image: productInfo.image || '/placeholder.jpg',
             quantity: quantity
           };
-          console.log('Using passed product info:', initialItem);
         }
         
         updatedCart = [...cartItems, initialItem];
@@ -360,7 +480,6 @@ export const CartProvider = ({ children }) => {
         // Only fetch product details if we don't already have them
         if (!productInfo || !productInfo.title) {
           try {
-            console.log('Fetching product details for ID:', productIdStr);
             const productDetails = await getProductDetails(productIdStr);
             if (productDetails && isMountedRef.current) {
               // Update with proper details once available
@@ -374,7 +493,10 @@ export const CartProvider = ({ children }) => {
                     }
                   : item
               );
+              
+              // Update cart with product details
               updateCartItemsWithBatching(newCartWithDetails);
+              return true;
             }
           } catch (detailsError) {
             console.error('Error fetching product details:', detailsError);
@@ -386,18 +508,34 @@ export const CartProvider = ({ children }) => {
       // Update cart with optimistic UI
       updateCartItemsWithBatching(updatedCart);
       
+      // Explicitly send the update via WebSocket
+      if (user && API_STATE.socket && !isWebSocketUpdateRef.current) {
+        API_STATE.socket.emit('cart_update', {
+          cart: mapFrontendCartToDb(updatedCart),
+          userId: user._id
+        });
+      }
+      
       return true;
     } catch (error) {
       console.error('Error adding to cart:', error);
       throw error;
     }
-  }, [cartItems, updateCartItemsWithBatching]);
+  }, [cartItems, updateCartItemsWithBatching, user]);
 
   // Remove from cart
   const removeFromCart = useCallback((id) => {
     const updatedCart = cartItems.filter((x) => x.id !== id);
     updateCartItemsWithBatching(updatedCart);
-  }, [cartItems, updateCartItemsWithBatching]);
+    
+    // Explicitly send the update via WebSocket
+    if (user && API_STATE.socket && !isWebSocketUpdateRef.current) {
+      API_STATE.socket.emit('cart_update', {
+        cart: mapFrontendCartToDb(updatedCart),
+        userId: user._id
+      });
+    }
+  }, [cartItems, updateCartItemsWithBatching, user]);
 
   // Update cart item quantity
   const updateCartQuantity = useCallback((id, quantity) => {
@@ -411,7 +549,15 @@ export const CartProvider = ({ children }) => {
       item.id === id ? { ...item, quantity } : item
     );
     updateCartItemsWithBatching(updatedCart);
-  }, [cartItems, removeFromCart, updateCartItemsWithBatching]);
+    
+    // Explicitly send the update via WebSocket
+    if (user && API_STATE.socket && !isWebSocketUpdateRef.current) {
+      API_STATE.socket.emit('cart_update', {
+        cart: mapFrontendCartToDb(updatedCart),
+        userId: user._id
+      });
+    }
+  }, [cartItems, removeFromCart, updateCartItemsWithBatching, user]);
 
   // Save shipping address
   const saveShippingAddress = useCallback((data) => {
@@ -441,6 +587,13 @@ export const CartProvider = ({ children }) => {
     cartItems.reduce((count, item) => count + item.quantity, 0),
     [cartItems]
   );
+
+  // Cleanup effect - ensure WebSocket connection is closed when unmounting
+  useEffect(() => {
+    return () => {
+      cleanupSocket();
+    };
+  }, []);
 
   // Memoize the context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => ({
