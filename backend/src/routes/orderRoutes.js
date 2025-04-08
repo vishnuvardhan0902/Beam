@@ -13,7 +13,7 @@ const { getSellerOrders } = require('../controllers/sellerController');
 const { sellerAuth } = require('../middleware/authMiddleware');
 
 // Private routes (require authentication)
-// router.route('/').post(protect, addOrderItems).get(protect, admin, getOrders);
+router.route('/').post(protect, addOrderItems).get(protect, admin, getOrders);
 router.route('/myorders').get(protect, getMyOrders);
 router.route('/seller').get(protect, sellerAuth, getSellerOrders);
 router.route('/:id').get(protect, getOrderById);
