@@ -25,7 +25,7 @@ app.use(cors({
   origin: ['http://localhost:5001','https://beam-shop.onrender.com','https://beam-shopping.onrender.com'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept', 'X-Requested-With', 'user-id'],
   exposedHeaders: ['Content-Range', 'X-Content-Range']
 }));
 
