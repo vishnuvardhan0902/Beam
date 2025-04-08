@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     
-    "build": "cd ../frontend && npm install && npm run build && cp -r dist ../backend/frontend",
+    "build": "cd ../frontend && npm install && npm run build",
     "start": "node server.js",
     "server": "nodemon server.js",
     "data:import": "node src/seeder.js",
