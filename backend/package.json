@@ -4,11 +4,12 @@
   "description": "Backend server for Beam application",
   "main": "server.js",
   "scripts": {
+    
+    "build": "cd ../frontend && npm install && npm run build && cp -r dist ../backend/frontend",
     "start": "node server.js",
     "server": "nodemon server.js",
     "data:import": "node src/seeder.js",
     "data:destroy": "node src/seeder.js -d",
-    "build": "cd ../frontend && npm install && npm run build",
     "prod": "npm run build && NODE_ENV=production node server.js"
   },
   "keywords": [],
