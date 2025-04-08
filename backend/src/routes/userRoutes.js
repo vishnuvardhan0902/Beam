@@ -17,7 +17,6 @@ const { protect, admin } = require('../middleware/authMiddleware');
 const router = express.Router();
 
 // Public routes
-router.route('/').post(registerUser).get(protect, admin, getUsers);
 router.post('/login', authUser);
 router.post('/google', googleAuth);
 router.post('/google-login', googleAuth);
