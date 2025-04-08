@@ -40,7 +40,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve static frontend (React/Vite) in both dev and prod
+// Serve static frontend (React/Vite) in both dev and 
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
 // API routes
