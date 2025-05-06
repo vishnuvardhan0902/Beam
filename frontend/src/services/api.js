@@ -54,6 +54,7 @@ PaymentMethod {
 import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001';
+console.log('Using API URL:', API_URL);
 
 const api = axios.create({
   baseURL: API_URL,
@@ -132,17 +133,26 @@ const loginAttemptInProgress = { value: false };
 
 // Make sure we're not adding /api prefix twice
 const formatEndpoint = (endpoint) => {
-  // If the API_BASE_URL already includes '/api' and the endpoint starts with '/api', 
+  // Remove leading slash if API_URL ends with slash
+  if (API_URL.endsWith('/') && endpoint.startsWith('/')) {
+    endpoint = endpoint.substring(1);
+  }
+  
+  // If the API_URL already includes '/api' and the endpoint starts with '/api', 
   // remove the duplicate '/api' from the endpoint
   if (API_URL.includes('/api') && endpoint.startsWith('/api')) {
     return endpoint.replace('/api', '');
   }
+  
   return endpoint;
 };
 
 // Enhanced fetch function with caching
 const fetchApi = async (endpoint, options = {}) => {
   try {
+    // Format the endpoint properly
+    const formattedEndpoint = formatEndpoint(endpoint);
+    
     // Add user ID and authorization token to headers if available
     const headers = {
       'Content-Type': 'application/json',
@@ -165,13 +175,14 @@ const fetchApi = async (endpoint, options = {}) => {
       }
     }
     
-    console.log(`Making API request to: ${API_URL}${endpoint}`);
+    const fullUrl = `${API_URL}${formattedEndpoint}`;
+    console.log(`Making API request to: ${fullUrl}`);
     
     // Set a default timeout to prevent hanging requests
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), options.timeout || 30000);
     
-    const response = await fetch(`${API_URL}${endpoint}`, {
+    const response = await fetch(fullUrl, {
       ...options,
       headers,
       credentials: 'include',
@@ -328,21 +339,21 @@ export async function getTopProducts() {
 }
 
 export async function createProduct(productData) {
-  return fetchApi('/products', {
+  return fetchApi('/api/products', {
     method: 'POST',
     body: JSON.stringify(productData),
   });
 }
 
 export async function updateProduct(id, productData) {
-  return fetchApi(`/products/${id}`, {
+  return fetchApi(`/api/products/${id}`, {
     method: 'PUT',
     body: JSON.stringify(productData),
   });
 }
 
 export async function deleteProduct(productId) {
-  return fetchApi(`/products/${productId}`, {
+  return fetchApi(`/api/products/${productId}`, {
     method: 'DELETE',
   });
 }
@@ -351,41 +362,10 @@ export async function deleteProduct(productId) {
 export async function googleLogin(googleData) {
   console.log('Attempting Google login with data:', googleData);
   try {
-    // Make sure to use properly formatted URL and avoid double /api prefixes
-    const endpoint = '/api/users/google-login';
-    const formattedEndpoint = formatEndpoint(endpoint);
-    const fullUrl = `${API_URL}${formattedEndpoint}`;
-    
-    console.log(`Making Google login request to: ${fullUrl}`);
-    
-    const response = await fetch(fullUrl, {
+    return await fetchApi('/api/users/google-login', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(googleData),
+      body: JSON.stringify(googleData)
     });
-
-    console.log(`Google login response status: ${response.status}`);
-    
-    // Get the response as text first
-    const responseText = await response.text();
-    console.log(`Google login response text: ${responseText.substring(0, 150)}...`);
-    
-    // Then parse it as JSON if possible
-    let data;
-    try {
-      data = JSON.parse(responseText);
-    } catch (parseError) {
-      console.error('Error parsing JSON response:', parseError);
-      throw new Error(`Google login failed: Server returned invalid JSON. Status: ${response.status}`);
-    }
-
-    if (!response.ok) {
-      throw new Error(data.message || `Google login failed: Status ${response.status}`);
-      }
-      
-      return data;
   } catch (error) {
     console.error('Google login error:', error);
     throw error;
@@ -395,41 +375,10 @@ export async function googleLogin(googleData) {
 export async function googleSignup(googleData) {
   console.log('Attempting Google signup with data:', googleData);
   try {
-    // Make sure to use properly formatted URL and avoid double /api prefixes
-    const endpoint = '/api/users/google';
-    const formattedEndpoint = formatEndpoint(endpoint);
-    const fullUrl = `${API_URL}${formattedEndpoint}`;
-    
-    console.log(`Making Google signup request to: ${fullUrl}`);
-    
-    const response = await fetch(fullUrl, {
+    return await fetchApi('/api/users/google', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(googleData),
+      body: JSON.stringify(googleData)
     });
-
-    console.log(`Google signup response status: ${response.status}`);
-    
-    // Get the response as text first
-    const responseText = await response.text();
-    console.log(`Google signup response text: ${responseText.substring(0, 150)}...`);
-    
-    // Then parse it as JSON if possible
-    let data;
-    try {
-      data = JSON.parse(responseText);
-    } catch (parseError) {
-      console.error('Error parsing JSON response:', parseError);
-      throw new Error(`Google signup failed: Server returned invalid JSON. Status: ${response.status}`);
-    }
-
-    if (!response.ok) {
-      throw new Error(data.message || `Google signup failed: Status ${response.status}`);
-      }
-      
-      return data;
   } catch (error) {
     console.error('Google signup error:', error);
     throw error;
