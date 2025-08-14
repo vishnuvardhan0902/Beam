@@ -56,6 +56,10 @@ import axios from 'axios';
 const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001';
 console.log('Using API URL:', API_URL);
 
+// Make sure we're not adding /api prefix twice
+// Endpoints should not include /api prefix; removed formatEndpoint function
+
+// Create axios instance with properly formatted baseURL
 const api = axios.create({
   baseURL: API_URL,
   headers: {
@@ -64,8 +68,10 @@ const api = axios.create({
   withCredentials: true // Enable credentials for CORS
 });
 
-// Add user ID to headers if available
+// Fix axios baseURL endpoint formatting
 api.interceptors.request.use((config) => {
+  // No endpoint formatting needed; endpoints should not include /api prefix
+  
   const userInfo = localStorage.getItem('userInfo');
   if (userInfo) {
     try {
@@ -88,7 +94,8 @@ class ApiService {
   static async login(credentials) {
     try {
       console.log('Login attempt with:', credentials);
-      const endpoint = credentials.googleId ? '/api/users/google' : '/api/users/login';
+      // Use endpoint without /api prefix
+      const endpoint = credentials.googleId ? '/users/google' : '/users/login';
       console.log('Using endpoint:', endpoint);
       const response = await api.post(endpoint, credentials);
       console.log('Login response:', response.data);
@@ -102,7 +109,8 @@ class ApiService {
   static async register(userData) {
     try {
       console.log('Register attempt with:', userData);
-      const endpoint = userData.googleId ? '/api/users/google' : '/api/users/register';
+      // Use endpoint without /api prefix
+      const endpoint = userData.googleId ? '/users/google' : '/users/register';
       console.log('Using endpoint:', endpoint);
       const response = await api.post(endpoint, userData);
       console.log('Register response:', response.data);
@@ -131,28 +139,9 @@ const cacheTTL = 60000; // 1 minute default TTL
 const pendingRequests = new Map();
 const loginAttemptInProgress = { value: false };
 
-// Make sure we're not adding /api prefix twice
-const formatEndpoint = (endpoint) => {
-  // Remove leading slash if API_URL ends with slash
-  if (API_URL.endsWith('/') && endpoint.startsWith('/')) {
-    endpoint = endpoint.substring(1);
-  }
-  
-  // If the API_URL already includes '/api' and the endpoint starts with '/api', 
-  // remove the duplicate '/api' from the endpoint
-  if (API_URL.includes('/api') && endpoint.startsWith('/api')) {
-    return endpoint.replace('/api', '');
-  }
-  
-  return endpoint;
-};
-
 // Enhanced fetch function with caching
 const fetchApi = async (endpoint, options = {}) => {
   try {
-    // Format the endpoint properly
-    const formattedEndpoint = formatEndpoint(endpoint);
-    
     // Add user ID and authorization token to headers if available
     const headers = {
       'Content-Type': 'application/json',
@@ -174,21 +163,21 @@ const fetchApi = async (endpoint, options = {}) => {
         console.error('Error parsing user info from localStorage:', error);
       }
     }
-    
-    const fullUrl = `${API_URL}${formattedEndpoint}`;
+
+    const fullUrl = `${API_URL}${endpoint}`;
     console.log(`Making API request to: ${fullUrl}`);
-    
+
     // Set a default timeout to prevent hanging requests
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), options.timeout || 30000);
-    
+
     const response = await fetch(fullUrl, {
       ...options,
       headers,
       credentials: 'include',
       signal: controller.signal
     });
-    
+
     clearTimeout(timeoutId);
 
     // Check if response is OK
@@ -212,6 +201,20 @@ const fetchApi = async (endpoint, options = {}) => {
             // Don't trigger multiple redirects or login attempts
             if (!loginAttemptInProgress.value) {
               loginAttemptInProgress.value = true;
+              
+              // Don't immediately log out and redirect for profile API calls
+              // This prevents a logout loop when trying to access profile pages
+              const isProfileEndpoint = endpoint.includes('/users/profile');
+              
+              // For profile endpoints, throw the error but don't clear localStorage or redirect
+              if (isProfileEndpoint) {
+                console.warn('Auth error on profile endpoint, not clearing auth state');
+                loginAttemptInProgress.value = false;
+                throw new Error('Authentication failed. Please try logging in again.');
+              }
+              
+              // For non-profile endpoints, proceed with normal error handling
+              console.log('Clearing auth state due to 401 on non-profile endpoint');
               
               // Clear user info if unauthorized
               localStorage.removeItem('userInfo');
@@ -362,7 +365,7 @@ export async function deleteProduct(productId) {
 export async function googleLogin(googleData) {
   console.log('Attempting Google login with data:', googleData);
   try {
-    return await fetchApi('/api/users/google-login', {
+    return await fetchApi('/users/google-login', {
       method: 'POST',
       body: JSON.stringify(googleData)
     });
@@ -375,7 +378,7 @@ export async function googleLogin(googleData) {
 export async function googleSignup(googleData) {
   console.log('Attempting Google signup with data:', googleData);
   try {
-    return await fetchApi('/api/users/google', {
+    return await fetchApi('/users/google', {
       method: 'POST',
       body: JSON.stringify(googleData)
     });
@@ -480,7 +483,7 @@ export async function getUserCart() {
     }
     
     // Skip API call if offline or if there have been too many recent errors
-    const errorCacheKey = `${formatEndpoint('/api/users/cart')}_error_count`;
+    const errorCacheKey = `/users/cart_error_count`;
     const errorCount = parseInt(sessionStorage.getItem(errorCacheKey) || '0');
     if (errorCount >= 3 && navigator.onLine === false) {
       console.log('Offline or too many errors - using cached cart or empty array');

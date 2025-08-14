@@ -31,6 +31,8 @@ const Profile = () => {
   const [orders, setOrders] = useState([]);
   const [addresses, setAddresses] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   
   const [formData, setFormData] = useState({
     name: '',
@@ -51,21 +53,43 @@ const Profile = () => {
         const userInfo = localStorage.getItem('userInfo');
         
         if (!userInfo) {
-          throw new Error('You are not logged in. Please log in to view your profile.');
+          // Quietly redirect without clearing localStorage
+          console.log('User not logged in, redirecting to login page');
+          navigate('/login');
+          return;
+        }
+        
+        try {
+          // Parse user info to verify it's valid
+          const parsedUser = JSON.parse(userInfo);
+          if (!parsedUser._id || !parsedUser.token) {
+            console.error('Invalid user info in localStorage');
+            navigate('/login');
+            return;
+          }
+        } catch (err) {
+          console.error('Error parsing user info from localStorage:', err);
+          navigate('/login');
+          return;
         }
         
         // Fetch user profile data
-        const profileData = await getUserProfile();
-        
-        // Set the user data
-        setUserData(profileData);
-        setFormData({
-          name: profileData.name || '',
-          email: profileData.email || '',
-          currentPassword: '',
-          newPassword: '',
-          confirmPassword: '',
-        });
+        try {
+          const profileData = await getUserProfile();
+          
+          // Set the user data
+          setUserData(profileData);
+          setFormData({
+            name: profileData.name || '',
+            email: profileData.email || '',
+            currentPassword: '',
+            newPassword: '',
+            confirmPassword: '',
+          });
+        } catch (err) {
+          console.error('Error fetching profile data:', err);
+          setError('Could not load profile data. Please try again later.');
+        }
         
         // Optionally fetch additional data
         try {
@@ -90,11 +114,11 @@ const Profile = () => {
         }
         
       } catch (err) {
-        console.error('Error fetching user data:', err);
+        console.error('Error in profile component:', err);
         setError(err.message || 'Failed to load profile data');
         
-        // If user is not logged in, redirect to login
-        if (err.message.includes('not logged in')) {
+        // Don't redirect to login if we already have user data
+        if (!userData && err.message.includes('not logged in')) {
           navigate('/login');
         }
       } finally {
@@ -176,11 +200,11 @@ const Profile = () => {
       });
       
       // Show success message
-      setSuccessMessage('Profile updated successfully');
+      setSuccess('Profile updated successfully');
       
       // Clear success message after 3 seconds
       setTimeout(() => {
-        setSuccessMessage('');
+        setSuccess(null);
       }, 3000);
       
     } catch (err) {
