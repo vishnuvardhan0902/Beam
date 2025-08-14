@@ -288,11 +288,11 @@ const fetchApi = async (endpoint, options = {}) => {
 
 // User API calls
 export async function getUserProfile() {
-  return fetchApi('/api/users/profile');
+return fetchApi('/users/profile');
 }
 
 export async function updateUserProfile(userData) {
-  return fetchApi('/api/users/profile', {
+  return fetchApi('/users/profile', {
     method: 'PUT',
     body: JSON.stringify(userData),
   });
@@ -309,7 +309,7 @@ export async function getProducts(params = {}) {
   const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
   try {
     console.log(`Fetching products with params: ${queryString}`);
-    return await fetchApi(`/api/products${queryString}`);
+    return await fetchApi(`/products${queryString}`);
   } catch (error) {
     console.error('Error fetching products:', error);
     throw error;
@@ -328,13 +328,13 @@ export async function getProductDetails(id) {
     }
   }
   
-  return fetchApi(`/api/products/${id}`);
+  return fetchApi(`/products/${id}`);
 }
 
 export async function getTopProducts() {
   try {
     console.log('Fetching top products');
-    return await fetchApi(`/api/products/top`);
+    return await fetchApi(`/products/top`);
   } catch (error) {
     console.error('Error fetching top products:', error);
     throw error;
@@ -342,21 +342,21 @@ export async function getTopProducts() {
 }
 
 export async function createProduct(productData) {
-  return fetchApi('/api/products', {
+  return fetchApi('/products', {
     method: 'POST',
     body: JSON.stringify(productData),
   });
 }
 
 export async function updateProduct(id, productData) {
-  return fetchApi(`/api/products/${id}`, {
+  return fetchApi(`/products/${id}`, {
     method: 'PUT',
     body: JSON.stringify(productData),
   });
 }
 
 export async function deleteProduct(productId) {
-  return fetchApi(`/api/products/${productId}`, {
+  return fetchApi(`/products/${productId}`, {
     method: 'DELETE',
   });
 }
@@ -390,62 +390,62 @@ export async function googleSignup(googleData) {
 
 // Address management functions
 export async function getUserAddresses() {
-  return fetchApi('/api/users/addresses');
+  return fetchApi('/users/addresses');
 }
 
 export async function addUserAddress(address) {
-  return fetchApi('/api/users/addresses', {
+  return fetchApi('/users/addresses', {
     method: 'POST',
     body: JSON.stringify(address),
   });
 }
 
 export async function updateUserAddress(addressId, address) {
-  return fetchApi(`/api/users/addresses/${addressId}`, {
+  return fetchApi(`/users/addresses/${addressId}`, {
     method: 'PUT',
     body: JSON.stringify(address),
   });
 }
 
 export async function deleteUserAddress(addressId) {
-  return fetchApi(`/api/users/addresses/${addressId}`, {
+  return fetchApi(`/users/addresses/${addressId}`, {
     method: 'DELETE',
   });
 }
 
 export async function setDefaultAddress(addressId) {
-  return fetchApi(`/api/users/addresses/${addressId}/default`, {
+  return fetchApi(`/users/addresses/${addressId}/default`, {
     method: 'PUT',
   });
 }
 
 // Payment method management functions
 export async function getUserPaymentMethods() {
-  return fetchApi('/api/users/payment-methods');
+  return fetchApi('/users/payment-methods');
 }
 
 export async function addUserPaymentMethod(paymentMethod) {
-  return fetchApi('/api/users/payment-methods', {
+  return fetchApi('/users/payment-methods', {
     method: 'POST',
     body: JSON.stringify(paymentMethod),
   });
 }
 
 export async function updateUserPaymentMethod(paymentMethodId, paymentMethod) {
-  return fetchApi(`/api/users/payment-methods/${paymentMethodId}`, {
+  return fetchApi(`/users/payment-methods/${paymentMethodId}`, {
     method: 'PUT',
     body: JSON.stringify(paymentMethod),
   });
 }
 
 export async function deleteUserPaymentMethod(paymentMethodId) {
-  return fetchApi(`/api/users/payment-methods/${paymentMethodId}`, {
+  return fetchApi(`/users/payment-methods/${paymentMethodId}`, {
     method: 'DELETE',
   });
 }
 
 export async function setDefaultPaymentMethod(paymentMethodId) {
-  return fetchApi(`/api/users/payment-methods/${paymentMethodId}/default`, {
+  return fetchApi(`/users/payment-methods/${paymentMethodId}/default`, {
     method: 'PUT',
   });
 }
@@ -491,7 +491,7 @@ export async function getUserCart() {
     }
     
     console.log('Fetching cart from server');
-    const data = await fetchApi('/api/users/cart', {
+    const data = await fetchApi('/users/cart', {
       timeout: 3000 // Shorter timeout for cart requests
     });
     
@@ -581,7 +581,7 @@ export async function updateUserCart(cartItems) {
     console.log('Sending cart update with items:', formattedCartItems);
     
     // Perform the update
-    const result = await fetchApi('/api/users/cart', {
+    const result = await fetchApi('/users/cart', {
       method: 'PUT',
       body: JSON.stringify({ cartItems: formattedCartItems })
     });
@@ -597,7 +597,7 @@ export async function updateUserCart(cartItems) {
 export async function listMyOrders() {
   try {
     console.log('Fetching user orders');
-    return await fetchApi('/api/orders/myorders');
+    return await fetchApi('/orders/myorders');
   } catch (error) {
     console.error('Error fetching orders:', error);
     throw error;
@@ -606,7 +606,7 @@ export async function listMyOrders() {
 
 export async function getOrderDetails(id) {
   try {
-    return await fetchApi(`/api/orders/${id}`);
+    return await fetchApi(`/orders/${id}`);
   } catch (error) {
     console.error(`Error fetching order details for ${id}:`, error);
     throw error;
@@ -614,14 +614,14 @@ export async function getOrderDetails(id) {
 }
 
 export async function createOrder(orderData) {
-  return fetchApi('/api/orders', {
+  return fetchApi('/orders', {
     method: 'POST',
     body: JSON.stringify(orderData),
   });
 }
 
 export async function payOrder(orderId, paymentResult) {
-  return fetchApi(`/api/orders/${orderId}/pay`, {
+  return fetchApi(`/orders/${orderId}/pay`, {
     method: 'PUT',
     body: JSON.stringify(paymentResult),
   });
@@ -631,7 +631,7 @@ export async function payOrder(orderId, paymentResult) {
 export async function getSellerProducts() {
   try {
     console.log('Fetching seller products');
-    return await fetchApi('/api/products/seller');
+    return await fetchApi('/products/seller');
   } catch (error) {
     console.error('Error fetching seller products:', error);
     throw error;
@@ -641,7 +641,7 @@ export async function getSellerProducts() {
 export async function getSellerOrders() {
   try {
     console.log('Fetching seller orders');
-    return await fetchApi('/api/sellers/orders');
+    return await fetchApi('/sellers/orders');
   } catch (error) {
     console.error('Error fetching seller orders:', error);
     throw error;
@@ -651,7 +651,7 @@ export async function getSellerOrders() {
 export async function getSellerDashboardData() {
   try {
     console.log('Fetching seller dashboard data');
-    return await fetchApi('/api/sellers/dashboard');
+    return await fetchApi('/sellers/dashboard');
   } catch (error) {
     console.error('Error fetching seller dashboard data:', error);
     throw error;
@@ -661,7 +661,7 @@ export async function getSellerDashboardData() {
 export async function getSellerSales(period = 'weekly') {
   try {
     console.log(`Fetching seller sales data for period: ${period}`);
-    return await fetchApi(`/api/sellers/sales?period=${period}`);
+    return await fetchApi(`/sellers/sales?period=${period}`);
   } catch (error) {
     console.error('Error fetching seller sales data:', error);
     throw error;
