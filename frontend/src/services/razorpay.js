@@ -33,7 +33,7 @@ const RAZORPAY_KEY_ID = 'rzp_test_Bv9HsrboraxaMb';
 
 export const createRazorpayOrder = async (amount, currency = 'INR') => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/payment/create-order`, {
+    const response = await fetch(`${API_BASE_URL}/payment/create-order`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -116,7 +116,7 @@ export const verifyPayment = async (
   razorpaySignature
 ) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/payment/verify`, {
+    const response = await fetch(`${API_BASE_URL}/payment/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -142,7 +142,7 @@ export const verifyPayment = async (
 // Test the Razorpay API connection
 export const testRazorpayConnection = async () => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/payment/test-connection`, {
+    const response = await fetch(`${API_BASE_URL}/payment/test-connection`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

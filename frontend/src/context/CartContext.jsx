@@ -125,18 +125,12 @@ const handleApiError = (error, operation) => {
 // Initialize Socket.io with connection
 const initializeSocket = (user) => {
   if (!user || !user._id) return null;
-  
   // Clean up existing socket if any
   cleanupSocket();
-  
   try {
     console.log('Initializing socket connection...');
-    
-    // Get backend URL from environment variables or use default
     const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001';
     console.log('Using backend URL for socket:', BACKEND_URL);
-    
-    // Create socket connection with improved connection options
     API_STATE.socket = io(BACKEND_URL, {
       withCredentials: true,
       transports: ['websocket'],
@@ -144,19 +138,19 @@ const initializeSocket = (user) => {
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      timeout: 10000,
-      auth: { 
-        userId: user._id, 
-        token: user.token 
-      }
+      timeout: 10000
     });
-    
-    // Set up event handlers with better logging
+    // Set up event handlers with backend protocol
     API_STATE.socket.on('connect', () => {
       console.log(`Socket connected successfully with ID: ${API_STATE.socket.id}`);
-      
-      // Join user's room for personalized updates
-      API_STATE.socket.emit('join_user_room', { userId: user._id });
+      // Authenticate after connect
+      API_STATE.socket.emit('authenticate', { userId: user._id });
+    });
+    API_STATE.socket.on('authenticated', (data) => {
+      console.log('Socket authenticated:', data);
+    });
+    API_STATE.socket.on('auth_error', (error) => {
+      console.error('Socket authentication error:', error);
     });
     
     API_STATE.socket.on('connect_error', (error) => {
